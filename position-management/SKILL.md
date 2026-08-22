@@ -75,7 +75,7 @@ description: 管理持仓的完整生命周期：建仓（把买点/止损/止�
 
 每笔平仓都问一句：「这笔交易能长出什么规则？」有答案，这笔就没白做。
 
-输出格式见 references/exit-summary-template.md 与 references/review-three-questions.md。
+输出格式见 references/exit-summary-template.md 与 references/close-review-four-layers.md。
 
 ## 硬性规则
 
@@ -88,4 +88,4 @@ description: 管理持仓的完整生命周期：建仓（把买点/止损/止�
 - references/entry-checklist.md — 建仓计划卡与下单前检查（建仓时读）
 - references/add-position-rules.md — 加仓条件与额度计算（加仓时读）
 - references/exit-summary-template.md — 清仓执行与平仓总结模板（清仓/总结时读）
-- references/review-three-questions.md — 盈亏计算与四层复盘（平仓复盘时读）
+- references/close-review-four-layers.md — 盈亏计算与四层复盘（平仓复盘时读）
