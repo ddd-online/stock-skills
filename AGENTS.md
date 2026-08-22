@@ -50,7 +50,7 @@ No automated test suite exists yet. Smoke-test scripts against a real symbol (e.
 
 - Never fabricate market data. If an API fails, report the error explicitly.
 - No secrets or API keys are used; keep it that way.
-- Skill output is educational only and must carry a not-investment-advice disclaimer.
+- Skill output must carry a not-investment-advice disclaimer.
 
 ## Commit & Pull Request Guidelines
 
