@@ -6,10 +6,10 @@
 
 | Skill | 作用 |
 |---|---|
-| [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股/ETF 是否值得买（已持仓时判断能否加仓）：证据先行、结论最后（基本面/技术面/支撑压力/风险/标的类型），并生成支撑位/压力位、买点、止损、止盈锚点与盈亏比；仓位由 position-management 确认 |
+| [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股/ETF 是否值得买（已持仓时判断能否加仓）：证据先行、结论最后（基本面/技术面/支撑压力/风险），并生成支撑位/压力位、买点、止损、止盈锚点与盈亏比；仓位由 position-management 确认 |
 | [stock-review](stock-review/) | 持仓每日 5 分钟检查（价格位置/量能/新信息/买入理由/心态），结果写入 STOCK-REVIEW.md |
 | [trade-rules-generate](trade-rules-generate/) | stock-analysis 判定值得买/值得加仓后自动调用，生成六格交易规则（选什么/何时买/买多少/错了怎么办/对了怎么办/交易后），持仓期间严格遵守；加仓时追加新规则，历史保留、以最新为准 |
-| [position-management](position-management/) | 持仓生命周期管理与全部仓位处理：仓位分档、分批建仓/止盈、加仓数量确认、清仓执行、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档） |
+| [position-management](position-management/) | 持仓生命周期管理与全部仓位处理：分批建仓/止盈、加仓数量确认、清仓执行、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档） |
 | [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化股票交易工作区：创建目录与种子文件，收集交易费用设置，并把归档规则写入 AGENTS.md |
 
 ## 安装（Codex）
@@ -58,7 +58,7 @@ trade-rules-generate 在 stock-analysis 判定「值得买/值得加仓」后自
 - 前置：所有 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
 - 所有 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
 - stock-analysis 结论为值得买/值得加仓后，才依次调用 trade-rules-generate → position-management
-- 仓位处理（分档、批次、手数、单笔亏损预算）全部由 position-management 确认；stock-analysis 只输出结论、锚点、标的类型与加仓建议
+- 仓位处理（批次、手数、单笔亏损预算）全部由 position-management 确认；stock-analysis 只输出结论、锚点与加仓建议
 - stock-review 只检查 POSITION.md 中的持仓；触发止损/止盈/时间止损时只给出平仓结论，不强制下单（可能不在交易时段）
 - 用户卖出后调用 position-management 告知卖出价，由它按实际成交价结算并完成平仓总结与归档
 - trade-rules-generate 加仓追加必须有「值得加仓」结论、POSITION.md 持仓与已有 TRADE-RULES.md，缺一不追加
