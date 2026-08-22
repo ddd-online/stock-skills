@@ -1,0 +1,4 @@
+interface:
+  display_name: "观察池审视"
+  short_description: "审视观察池：逐只调用 stock-analysis 分析池中标的，更新状态并回写 WATCHLIST.md"
+  default_prompt: "使用 $watchlist-review 审视一下我的观察池"

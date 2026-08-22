@@ -1,6 +1,6 @@
 ---
 name: setup-stock-workspace
-description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、stocks/股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 与 history/YYYY-MM-DD/），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）写入 ACCOUNT.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
+description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、stocks/股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 与 history/YYYY-MM-DD/），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）写入 ACCOUNT.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
 ---
 
 # Setup Stock Workspace
@@ -26,7 +26,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 
 向用户展示模板映射（见 [references/template-map.md](./references/template-map.md)），逐项确认：
 
-- 目录/文件用途（9 项）是否符合预期
+- 目录/文件用途（10 项）是否符合预期
 - 股票代码文件夹命名：纯数字代码（如 600410）
 - AGENTS.md：存在时原地更新 `## 股票交易工作区` 区块；不存在则新建
 - 交易费用设置（用于每次交易的费用计算，写入 ACCOUNT.md）：
@@ -46,6 +46,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 ├── NOTES.md            ← assets/NOTES.md
 ├── POSITION.md         ← assets/POSITION.md
 ├── MUST.md             ← assets/MUST.md（默认只有一个标题，用户自行编辑）
+├── WATCHLIST.md        ← assets/WATCHLIST.md（观察池：标的/触发条件/预案/状态）
 └── stocks/                     ← 初始为空，不建占位文件夹
 ```
 
@@ -69,6 +70,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 - NOTES.md：复盘后沉淀的知识、教训、准则，逐条记录
 - POSITION.md：当前持仓状态（仓位、成本、止损止盈），买入/卖出后立即更新
 - MUST.md：个人交易风格与必须遵守的规则（默认只有一个标题，用户自行编辑），所有 SKILL 必须遵守
+- WATCHLIST.md：观察池（标的/类型/体检结论/触发条件/止损止盈预案/状态），由 stock-analysis 判定进出池，watchlist-review 定期审视更新
 - stocks/<代码>/：每只股票一个文件夹（纯数字代码）
   - STOCK-REVIEW.md：个股每日检查（stock-review 的结果写入）
   - TRADE-RULES.md：个股交易规则（trade-rules-generate 生成，交易期间严格遵守）
@@ -92,6 +94,7 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其代
 - 止损无条件执行；跳空破位/暴跌日不等收盘；接受滑点
 - 费用计算以 ACCOUNT.md 交易费用设置为准（佣金费率、最低佣金、印花税、过户费）
 - 所有 SKILL 必须遵守 MUST.md 中的个人交易风格与规则
+- 没有触发条件不买；观察池标的必须三要素齐全（标的、触发条件、预案）
 - 每笔真实交易必须归档：POSITION.md → TRADE-SUMMARY.md → history
 ```
 
@@ -105,5 +108,5 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其代
 
 ## 资产（种子模板）
 
-- assets/ACCOUNT.md、assets/NOTES.md、assets/POSITION.md、assets/MUST.md — 根级种子模板
+- assets/ACCOUNT.md、assets/NOTES.md、assets/POSITION.md、assets/MUST.md、assets/WATCHLIST.md — 根级种子模板
 - assets/stocks/STOCK-REVIEW.md、assets/stocks/TRADE-RULES.md、assets/stocks/TRADE-SUMMARY.md — 个股种子模板

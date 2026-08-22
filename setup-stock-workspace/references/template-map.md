@@ -8,11 +8,12 @@
 | 2 | NOTES.md | 交易复盘之后获得的知识、教训、准则 |
 | 3 | POSITION.md | 当前持仓状态：每只股票的仓位、成本、止损止盈 |
 | 4 | MUST.md | 个人交易风格与必须遵守的规则（默认只有一个标题，用户自行编辑）；所有 SKILL 必须遵守 |
-| 5 | stocks/股票代码/ | 每只股票一个文件夹，文件夹名=股票代码（如 600410） |
-| 6 | stocks/<代码>/STOCK-REVIEW.md | 个股每日检查：价格位置/量能/新信息/买入理由/心态/客观判断；stock-review SKILL 的检查结果写入该文件 |
-| 7 | stocks/<代码>/TRADE-RULES.md | 个股交易规则：买点/止损/止盈/加仓条件（每只票的专属规则）；trade-rules-generate SKILL 生成的交易规则写入这里，交易期间严格遵守 |
-| 8 | stocks/<代码>/TRADE-SUMMARY.md | 个股交易总结：该股的累计交易记录和盈亏汇总；清仓时总结一次写入该文件，并归档到 history |
-| 9 | stocks/<代码>/history/YYYY-MM-DD/ | 按日期存档；一只股票清仓后，将 TRADE-RULES.md、STOCK-REVIEW.md、TRADE-SUMMARY.md 归档到该目录 |
+| 5 | WATCHLIST.md | 观察池：标的/类型/体检结论/触发条件/止损止盈预案/状态；由 stock-analysis 判定进出池，watchlist-review 定期审视更新 |
+| 6 | stocks/股票代码/ | 每只股票一个文件夹，文件夹名=股票代码（如 600410） |
+| 7 | stocks/<代码>/STOCK-REVIEW.md | 个股每日检查：价格位置/量能/新信息/买入理由/心态/客观判断；stock-review SKILL 的检查结果写入该文件 |
+| 8 | stocks/<代码>/TRADE-RULES.md | 个股交易规则：买点/止损/止盈/加仓条件（每只票的专属规则）；trade-rules-generate SKILL 生成的交易规则写入这里，交易期间严格遵守 |
+| 9 | stocks/<代码>/TRADE-SUMMARY.md | 个股交易总结：该股的累计交易记录和盈亏汇总；清仓时总结一次写入该文件，并归档到 history |
+| 10 | stocks/<代码>/history/YYYY-MM-DD/ | 按日期存档；一只股票清仓后，将 TRADE-RULES.md、STOCK-REVIEW.md、TRADE-SUMMARY.md 归档到该目录 |
 
 ## 命名与生命周期
 
