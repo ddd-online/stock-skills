@@ -84,7 +84,7 @@ description: 全面分析一只A股或ETF是否值得买入（已持仓时判断
 
 ## 参考资料
 
-- references/basics-1-5.md — 前5课基础速查（需要解释交易成本、K线、均线、量价、仓位时读）
+- references/basics.md — 基础速查（需要确认交易成本、K线、均线、量价、仓位时读）
 - references/fundamentals.md — 基本面六个数字速查（需要解释 PE/PB/毛利率/负债率时读）
 - references/risk-checklist.md — 避雷清单与风险特征（判断风险时读）
 - references/screening-template.md — 个股体检五步模板与报告结构（组织输出时读）

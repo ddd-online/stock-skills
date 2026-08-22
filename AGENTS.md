@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-Self-contained Codex skills for A-share trading education and practice. Each skill covers one stage of the trading lifecycle: analysis, planning, position management, review, and setup.
+Self-contained Codex skills for A-share live trading. Each skill covers one stage of the trading lifecycle: analysis, planning, position management, review, and setup.
 
 ## Project Structure & Module Organization
 
