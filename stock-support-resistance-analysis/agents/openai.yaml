@@ -1,4 +1,0 @@
-interface:
-  display_name: "支撑压力分析"
-  short_description: "生成一只股票近期的支撑位与压力位，并给出当前价格位置"
-  default_prompt: "使用 $stock-support-resistance-analysis 分析 510300 近期的支撑位和压力位"

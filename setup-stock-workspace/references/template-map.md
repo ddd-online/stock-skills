@@ -4,14 +4,15 @@
 
 | # | 路径 | 用途 |
 |---|---|---|
-| 1 | ACCOUNT.md | 账户总览：本金、现金、总盈亏、资金变化记录 |
+| 1 | ACCOUNT.md | 账户总览：本金、现金、总盈亏、资金变化记录 + 交易费用设置（佣金费率/最低佣金/印花税/过户费） |
 | 2 | NOTES.md | 交易复盘之后获得的知识、教训、准则 |
 | 3 | POSITION.md | 当前持仓状态：每只股票的仓位、成本、止损止盈 |
-| 4 | stocks/股票代码/ | 每只股票一个文件夹，文件夹名=股票代码（如 600410） |
-| 5 | stocks/<代码>/STOCK-REVIEW.md | 个股复盘：买卖理由、执行情况、经验教训；stock-review SKILL 的复盘结果写入该文件 |
-| 6 | stocks/<代码>/TRADE-RULES.md | 个股交易规则：买点/止损/止盈/加仓条件（每只票的专属规则）；trade-rules-generate SKILL 生成的交易规则写入这里，交易期间严格遵守 |
-| 7 | stocks/<代码>/TRADE-SUMMARY.md | 个股交易总结：该股的累计交易记录和盈亏汇总；清仓时总结一次写入该文件，并归档到 history |
-| 8 | stocks/<代码>/history/YYYY-MM-DD/ | 按日期存档；一只股票清仓后，将 TRADE-RULES.md、STOCK-REVIEW.md、TRADE-SUMMARY.md 归档到该目录 |
+| 4 | MUST.md | 个人交易风格与必须遵守的规则（默认只有一个标题，用户自行编辑）；所有 SKILL 必须遵守 |
+| 5 | stocks/股票代码/ | 每只股票一个文件夹，文件夹名=股票代码（如 600410） |
+| 6 | stocks/<代码>/STOCK-REVIEW.md | 个股复盘：买卖理由、执行情况、经验教训；stock-review SKILL 的复盘结果写入该文件 |
+| 7 | stocks/<代码>/TRADE-RULES.md | 个股交易规则：买点/止损/止盈/加仓条件（每只票的专属规则）；trade-rules-generate SKILL 生成的交易规则写入这里，交易期间严格遵守 |
+| 8 | stocks/<代码>/TRADE-SUMMARY.md | 个股交易总结：该股的累计交易记录和盈亏汇总；清仓时总结一次写入该文件，并归档到 history |
+| 9 | stocks/<代码>/history/YYYY-MM-DD/ | 按日期存档；一只股票清仓后，将 TRADE-RULES.md、STOCK-REVIEW.md、TRADE-SUMMARY.md 归档到该目录 |
 
 ## 命名与生命周期
 

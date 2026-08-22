@@ -1,4 +1,4 @@
 interface:
-  display_name: "持仓检查与复盘"
-  short_description: "对已买入的股票做每日检查或平仓复盘，按规则给客观判断"
-  default_prompt: "使用 $stock-review 复盘我的华胜天成持仓（买入15.30、止损14.58）"
+  display_name: "持仓检查"
+  short_description: "对已买入的股票做每日检查，按规则给客观判断并写入 STOCK-REVIEW.md"
+  default_prompt: "使用 $stock-review 检查我的华胜天成持仓（买入15.30、止损14.58）"
