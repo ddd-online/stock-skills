@@ -27,6 +27,8 @@ No build step or package manager. Scripts run directly with Python 3 and network
 ```bash
 python stock-analysis/scripts/fetch_quote.py sh600410 --days 60
 python stock-analysis/scripts/fetch_fundamentals.py sz002491
+python stock-analysis/scripts/fetch_news.py sh600410 --news 3 --ann 3
+python stock-analysis/scripts/fetch_capital_flow.py sh600410
 ```
 
 They pull real quote and fundamentals data from Tencent and Eastmoney public endpoints (no API keys). Verify syntax without a live run:

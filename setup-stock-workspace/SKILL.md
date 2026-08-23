@@ -89,6 +89,8 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其代
 
 - 行情：腾讯公开接口（各 skill 的 scripts/fetch_quote.py）
 - 财报：东方财富 datacenter（scripts/fetch_fundamentals.py）
+- 新闻/公告：东方财富（scripts/fetch_news.py：搜索新闻 + np-anotice 公告）
+- 资金流向：东方财富（scripts/fetch_capital_flow.py）
 
 ### 纪律
 

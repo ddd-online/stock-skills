@@ -8,7 +8,7 @@
 
 | Skill | 作用 |
 |---|---|
-| [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股/ETF 是否值得买（已持仓时判断能否加仓）：证据先行、结论最后（基本面/技术面/支撑压力/风险），并生成支撑位/压力位、买点、止损、止盈锚点与盈亏比；仓位由 position-management 确认 |
+| [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股/ETF 是否值得买（已持仓时判断能否加仓）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），并检查近期新闻/公告（逻辑证伪）与资金流向；生成支撑位/压力位、买点、止损、止盈锚点与盈亏比；仓位由 position-management 确认 |
 | [watchlist-review](watchlist-review/) | 审视观察池：逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日 5 分钟检查（价格位置/量能/新信息/买入理由/心态），结果写入 STOCK-REVIEW.md |
 | [trade-rules-generate](trade-rules-generate/) | stock-analysis 判定值得买/值得加仓后自动调用，生成六格交易规则（选什么/何时买/买多少/错了怎么办/对了怎么办/交易后），持仓期间严格遵守；加仓时追加新规则，历史保留、以最新为准 |
@@ -40,7 +40,7 @@ python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github
 ## 依赖
 
 - Python 3（纯标准库，无第三方依赖）
-- 网络连接（数据接口：腾讯行情 `qt.gtimg.cn` / `web.ifzq.gtimg.cn`，东方财富财报 `datacenter-web.eastmoney.com`）
+- 网络连接（数据接口：腾讯行情 `qt.gtimg.cn` / `web.ifzq.gtimg.cn`，东方财富财报 `datacenter-web.eastmoney.com`、新闻/公告 `search-api-web.eastmoney.com` / `np-anotice-stock.eastmoney.com`、资金流向 `push2.eastmoney.com`）
 - 数据接口免费、无需密钥；接口不可用时 skill 明确报错，不编造数据
 
 ## 交易流程
@@ -81,7 +81,7 @@ stock-skills/
 │   ├── SKILL.md            # 触发说明与工作流（必读）
 │   ├── agents/openai.yaml  # 界面元数据
 │   ├── references/         # 中文参考文档（按需加载）
-│   └── scripts/            # 真实数据脚本（fetch_quote.py / fetch_fundamentals.py）
+│   └── scripts/            # 真实数据脚本（fetch_quote / fetch_fundamentals / fetch_news / fetch_capital_flow）
 └── README.md
 ```
 
