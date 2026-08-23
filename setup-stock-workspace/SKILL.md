@@ -1,6 +1,6 @@
 ---
 name: setup-stock-workspace
-description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、stocks/股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 与 history/YYYY-MM-DD/），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）写入 ACCOUNT.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
+description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、stocks/股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 与 history/YYYY-MM-DD/），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥30%、单笔预算≤2%、当前档位）写入 ACCOUNT.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
 ---
 
 # Setup Stock Workspace
@@ -67,7 +67,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 
 ### 目录与文件规则
 
-- ACCOUNT.md：账户总览（本金、现金、总盈亏、资金变化记录）+ 交易费用设置（佣金费率/最低佣金/印花税/过户费），每次资金变动后更新
+- ACCOUNT.md：账户总览（本金、现金、总盈亏、资金变化记录）+ 交易费用设置（佣金费率/最低佣金/印花税/过户费）+ 资金规则（现金储备≥30%、单笔预算≤2%、当前档位），每次资金变动后更新
 - NOTES.md：复盘后沉淀的知识、教训、准则，逐条记录
 - POSITION.md：当前持仓状态（仓位、成本、止损止盈），买入/卖出后立即更新
 - MUST.md：个人交易风格与必须遵守的规则（默认只有一个标题，用户自行编辑），所有 SKILL 必须遵守
@@ -98,7 +98,7 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其代
 - 止损无条件执行；跳空破位/暴跌日不等收盘；接受滑点
 - 费用计算以 ACCOUNT.md 交易费用设置为准（佣金费率、最低佣金、印花税、过户费）
 - 所有 SKILL 必须遵守 MUST.md 中的个人交易风格与规则
-- 没有触发条件不买；观察池标的必须三要素齐全（标的、触发条件、预案）
+- 没有触发条件不建仓；观察池标的必须三要素齐全（标的、触发条件、预案）
 - 每笔真实交易必须归档：POSITION.md → TRADE-SUMMARY.md → history
 - 每 5-10 笔结算一次四指标（胜率、平均盈亏、期望值、最大回撤），一次只改一条规则
 ```
