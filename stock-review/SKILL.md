@@ -44,3 +44,4 @@ description: 对已买入的A股/ETF持仓做每日检查。持仓信息从工�
 
 - references/daily-check.md — 每日5分钟检查五条与触发规则
 - references/log-template.md — 交易日志模板
+- references/stock-midday-review-email-template.md — 午间复盘邮件模板（每日 11:45 生成邮件时读）
