@@ -12,7 +12,7 @@
 | [watchlist-review](watchlist-review/) | 审视观察池：逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日 5 分钟检查（价格位置/量能/新信息/买入理由/心态），结果写入 STOCK-REVIEW.md |
 | [trade-rules-generate](trade-rules-generate/) | stock-analysis 判定值得买/值得加仓后自动调用，生成六格交易规则（选什么/何时买/买多少/错了怎么办/对了怎么办/交易后），持仓期间严格遵守；加仓时追加新规则，历史保留、以最新为准 |
-| [position-management](position-management/) | 持仓生命周期管理与全部仓位处理：分批建仓/止盈、加仓数量确认、清仓执行、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档） |
+| [position-management](position-management/) | 持仓生命周期管理与全部仓位处理：分批建仓/止盈、加仓数量确认、清仓执行、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md） |
 | [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化股票交易工作区：创建目录与种子文件，收集交易费用设置，并把归档规则写入 AGENTS.md |
 
 ## 安装（Codex）
@@ -52,10 +52,12 @@ python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github
           → position-management 确认仓位并建仓/加仓
           → stock-review 每日检查（更新 STOCK-REVIEW.md）
           → stock-review 触发平仓条件时给出平仓结论（不强制下单）
-          → 用户清仓后告知 position-management 卖出价 → 平仓复盘与总结（TRADE-SUMMARY → history 归档）
+          → 用户清仓后告知 position-management 卖出价 → 平仓复盘与总结（TRADE-SUMMARY → TRADE-STATS 四指标 → history 归档）
 ```
 
 trade-rules-generate 在 stock-analysis 判定「值得买/值得加仓」后自动调用，生成该股专属的六格交易规则；加仓时在文件末尾追加新规则，历史规则保留、以最新为准。持仓期间严格遵守，不临时修改。生成规则后由 position-management 确认仓位并执行建仓/加仓；持仓期间的每日检查由 stock-review 负责，清仓后的平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档）由 position-management 负责。
+
+每笔清仓后 position-management 把交易记录写入根目录 TRADE-STATS.md，每 5-10 笔结算胜率、平均盈亏、期望值、最大回撤，用统计判断系统是否有效、下一步该改哪一端（入场端/出场端），一次只改一条规则。
 
 空仓期/等待期：$watchlist-review 审视观察池——逐只调用 $stock-analysis，按结论更新 WATCHLIST.md 状态；没有触发条件不买。
 

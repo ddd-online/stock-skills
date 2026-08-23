@@ -1,6 +1,6 @@
 ---
 name: position-management
-description: 管理持仓的完整生命周期与全部仓位处理：建仓（分批建仓三批封顶；确认股数、批次、费用、T+1）、加仓确认（stock-analysis 只给建议，本 SKILL 计算并确认能否加、加多少；只在盈利且趋势延续时加，禁止亏损摊平）、分批止盈（两批，需≥2手）、清仓处理（用户卖出后按实际成交价结算、滑点处理）与平仓复盘总结（事实→执行→判断→改进四层复盘，生成 TRADE-SUMMARY.md 并归档到 history/YYYY-MM-DD/）。在 stock-analysis 判定值得买/值得加仓、trade-rules-generate 生成或追加规则后自动调用；用户卖出后告知卖出价，由本 SKILL 完成平仓结算。当用户请求“建仓、下单、分批建仓、要不要加仓、加仓、分批止盈、清仓、卖出、平仓总结、平仓复盘、我的持仓怎么管理”时使用。持仓期间的每日5分钟检查请用 stock-review。
+description: 管理持仓的完整生命周期与全部仓位处理：建仓（分批建仓三批封顶；确认股数、批次、费用、T+1）、加仓确认（stock-analysis 只给建议，本 SKILL 计算并确认能否加、加多少；只在盈利且趋势延续时加，禁止亏损摊平）、分批止盈（两批，需≥2手）、清仓处理（用户卖出后按实际成交价结算、滑点处理）与平仓复盘总结（事实→执行→判断→改进四层复盘，生成 TRADE-SUMMARY.md 并归档到 history/YYYY-MM-DD/；清仓时计算胜率、平均盈亏、期望值、最大回撤四指标写入 TRADE-STATS.md）。在 stock-analysis 判定值得买/值得加仓、trade-rules-generate 生成或追加规则后自动调用；用户卖出后告知卖出价，由本 SKILL 完成平仓结算。当用户请求“建仓、下单、分批建仓、要不要加仓、加仓、分批止盈、清仓、卖出、平仓总结、平仓复盘、我的持仓怎么管理”时使用。持仓期间的每日5分钟检查请用 stock-review。
 ---
 
 # 持仓生命周期管理（建仓 → 加仓 → 清仓 → 总结）
@@ -9,7 +9,7 @@ description: 管理持仓的完整生命周期与全部仓位处理：建仓（�
 
 - 触发：用户直接请求建仓/加仓/清仓/平仓总结，或 stock-analysis 判定值得买/值得加仓且 trade-rules-generate 已生成/追加规则后自动调用。
 - 前置：工作区已初始化（ACCOUNT.md / POSITION.md / stocks/）；建仓前必须有明确买点/止损/止盈（来自 stock-analysis 输出或用户输入）；加仓前该股必须在 POSITION.md 持仓中；清仓前该股必须在 POSITION.md 持仓中。
-- 依赖文件：ACCOUNT.md（本金/现金/总盈亏）、POSITION.md（该股持仓与总仓位）、MUST.md（个人交易风格与必守规则）；每次建仓/加仓/清仓后更新 POSITION.md，资金变动更新 ACCOUNT.md。
+- 依赖文件：ACCOUNT.md（本金/现金/总盈亏）、POSITION.md（该股持仓与总仓位）、MUST.md（个人交易风格与必守规则）、TRADE-STATS.md（累计交易记录与四指标结算）；每次建仓/加仓/清仓后更新 POSITION.md，资金变动更新 ACCOUNT.md，每笔清仓后更新 TRADE-STATS.md。
 - 禁止：无计划建仓（缺买点/止损/止盈）、对非持仓股加仓或清仓。
 
 ## 流程总览
@@ -28,7 +28,7 @@ description: 管理持仓的完整生命周期与全部仓位处理：建仓（�
 5. 加仓决策：两条件全过 → 计算并确认加仓数量（stock-analysis 只提供建议）→ 输出加仓计划。
 6. 分批止盈（可选，需≥2手）：到达第一压力卖部分；站稳看第二目标；跌破第一压力全卖。
 7. 清仓执行：触发即走、接受滑点、T+1 → 记录实际盈亏。
-8. 平仓复盘与总结：四层复盘（事实→执行→判断→改进）+ 滑点记录 → 规则修订写回 TRADE-RULES.md → 生成 TRADE-SUMMARY.md → 归档 history/YYYY-MM-DD/ → 教训沉淀到 NOTES.md。
+8. 平仓复盘与总结：四层复盘（事实→执行→判断→改进）+ 滑点记录 → 规则修订写回 TRADE-RULES.md → 生成 TRADE-SUMMARY.md → 更新 TRADE-STATS.md（每 5-10 笔结算四指标）→ 归档 history/YYYY-MM-DD/ → 教训沉淀到 NOTES.md。
 
 ## 建仓
 
@@ -90,8 +90,9 @@ description: 管理持仓的完整生命周期与全部仓位处理：建仓（�
 2. 执行层（查纪律）：逐条对照该股 TRADE-RULES.md 的规则与下单前六问，标注每条执行了没有，给出纪律得分。执行与判断分开记：止损做对了就是做对了，不因结果亏钱而否定。
 3. 判断层（判对错）：当初的买入理由后来成立了吗？判断对错，不和运气混在一起。
 4. 改进层（出规则）：流程哪里改？提炼至少一条可落地规则，写回该股 TRADE-RULES.md（规则修订，历史保留），关键教训沉淀到 NOTES.md。
-5. 生成 TRADE-SUMMARY.md：累计交易记录 + 累计盈亏 + 胜率 + 总结（写入 stocks/<代码>/，已存在则更新）；攒够 5-10 笔后统计胜率与平均盈亏，用数据检验规则。
-6. 归档：把 TRADE-RULES.md / STOCK-REVIEW.md / TRADE-SUMMARY.md **移动**到 history/YYYY-MM-DD/（归档=移动，工作区不留副本；下次交易该股重新生成）。
+5. 生成 TRADE-SUMMARY.md：累计交易记录 + 累计盈亏 + 胜率 + 总结（写入 stocks/<代码>/，已存在则更新）。
+6. 更新四指标统计：把该笔（日期/股票/方向/价格/盈亏/是否符合系统/违规说明）写入工作区 TRADE-STATS.md；攒够 5-10 笔后按第16课公式结算胜率、平均盈亏、期望值、最大回撤（最大回撤从 ACCOUNT.md 资金变化记录计算），判断系统是否有效、亏损在入场端还是出场端；一次只改一条规则（见 references/trade-stats.md）。
+7. 归档：把 TRADE-RULES.md / STOCK-REVIEW.md / TRADE-SUMMARY.md **移动**到 history/YYYY-MM-DD/（归档=移动，工作区不留副本；下次交易该股重新生成）。
 
 每笔平仓都问一句：「这笔交易能长出什么规则？」有答案，这笔就没白做。
 
@@ -112,3 +113,4 @@ description: 管理持仓的完整生命周期与全部仓位处理：建仓（�
 - references/add-position-rules.md — 加仓条件与额度计算（加仓时读）
 - references/exit-summary-template.md — 清仓执行与平仓总结模板（清仓/总结时读）
 - references/close-review-four-layers.md — 盈亏计算与四层复盘（平仓复盘时读）
+- references/trade-stats.md — 四指标统计（胜率/平均盈亏/期望值/最大回撤）与结算时机（清仓结算时读）
