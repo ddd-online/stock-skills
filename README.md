@@ -2,7 +2,7 @@
 
 中文 A 股实盘交易辅助的 Codex skills 集合，覆盖「分析 → 计划 → 建仓 → 持仓 → 清仓 → 复盘」完整交易生命周期。每个 skill 独立自包含（SKILL.md + references + scripts），基于真实行情与财报数据（腾讯行情接口、东方财富财报接口），无需密钥。
 
-当前版本：2.2.0 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
+当前版本：2.2.1 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
 
 ## Skills 一览
 
