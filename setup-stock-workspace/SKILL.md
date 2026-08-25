@@ -1,6 +1,6 @@
 ---
 name: setup-stock-workspace
-description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、stocks/股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 与 history/YYYY-MM-DD/），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥30%、单笔预算≤2%、当前档位）写入 ACCOUNT.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
+description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、stocks/股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 与 history/YYYY-MM-DD/），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥30%、单笔预算≤2%、当前档位）写入 ACCOUNT.md，收集复盘/通知邮件收件人写入 AGENTS.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
 ---
 
 # Setup Stock Workspace
@@ -35,6 +35,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
   - 印花税：默认卖出 0.05%（规则固定，可调整）
   - 过户费：默认 0.01‰（规则固定，可调整）
   - 拿不到用户答案时用默认值，并在 ACCOUNT.md 标注“默认值，待确认”
+- 复盘/通知邮件收件人：询问用户邮箱地址（用于 stock-report 每日复盘邮件；写入 AGENTS.md「邮件」章节）；用户不提供则写“未提供”，复盘时自动改为生成 report/ 报告文件
 
 ## 3. 初始化
 
@@ -57,10 +58,11 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 - 清仓时：创建 history/YYYY-MM-DD/，把 STOCK-REVIEW.md / TRADE-RULES.md / TRADE-SUMMARY.md **移动**到该目录（归档=移动，工作区不留副本）；下次交易该股时重新生成三个文件
 - 已存在的文件不覆盖；空文件用种子模板填充；全部 UTF-8 编码
 - 按确认结果填写 ACCOUNT.md 的交易费用设置；缺失或未确认的项用默认值并标注“默认值，待确认”
+- report/ 为复盘报告输出目录（初始为空）：AGENTS.md 未配置邮箱时，stock-report 将复盘邮件正文以 md 文件保存到此处
 
 ## 4. 写入 AGENTS.md
 
-在 AGENTS.md 中写入 `## 股票交易工作区` 区块（存在则原地更新，不重复追加；保留用户其他内容）：
+在 AGENTS.md 中写入 `## 股票交易工作区` 区块（存在则原地更新，不重复追加；保留用户其他内容），其中「邮件」章节按确认结果填入收件人邮箱；用户未提供则写“未提供”：
 
 ```markdown
 ## 股票交易工作区
@@ -73,6 +75,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 - MUST.md：个人交易风格与必须遵守的规则（默认只有一个标题，用户自行编辑），所有 SKILL 必须遵守
 - WATCHLIST.md：观察池（标的/类型/体检结论/触发条件/止损止盈预案/状态），由 stock-analysis 判定进出池，watchlist-review 定期审视更新
 - TRADE-STATS.md：交易统计表（每笔清仓填一行；每 5-10 笔结算胜率/平均盈亏/期望值/最大回撤，用统计判断系统是否有效），由 position-management 更新
+- report/：复盘报告输出目录（AGENTS.md 未配置邮箱时，复盘邮件正文以 md 文件保存到此处），由 stock-report 写入
 - stocks/<代码>/：每只股票一个文件夹（纯数字代码）
   - STOCK-REVIEW.md：个股每日检查（stock-review 的结果写入）
   - TRADE-RULES.md：个股交易规则（trade-rules-generate 生成，交易期间严格遵守）
@@ -91,6 +94,10 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其代
 - 财报：东方财富 datacenter（scripts/fetch_fundamentals.py）
 - 新闻/公告：东方财富（scripts/fetch_news.py：搜索新闻 + np-anotice 公告）
 - 资金流向：东方财富（scripts/fetch_capital_flow.py）
+
+### 邮件
+
+- 复盘/通知邮件收件人：{{邮箱；未提供则写“未提供”}}（通过 agently-mail 发送）
 
 ### 纪律
 

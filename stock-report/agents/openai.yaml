@@ -1,0 +1,3 @@
+interface:
+  display_name: "股票每日复盘"
+  short_description: "每日午间/收盘复盘：持仓检查、观察池更新、邮件发送与清理"

@@ -11,6 +11,7 @@
 | [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股/ETF 并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；资金调度由 position-management 确认 |
 | [watchlist-review](watchlist-review/) | 审视观察池：逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日 5 分钟检查（价格位置/量能/新信息/买入理由/心态），结果写入 STOCK-REVIEW.md |
+| [stock-report](stock-report/) | 每日复盘（午间 11:45 精简版 / 收盘 15:15 完整版）：持仓检查 + 观察池更新 + 生成复盘邮件（agently-mail 发送，无邮箱则写 report/ 报告），收盘后清理临时文件 |
 | [trade-rules-generate](trade-rules-generate/) | stock-analysis 输出建仓/加仓信号后自动调用，生成六格交易规则（选什么/何时买/买多少/错了怎么办/对了怎么办/交易后），持仓期间严格遵守；加仓时追加新规则，历史保留、以最新为准 |
 | [position-management](position-management/) | 持仓生命周期管理与资金调度：每次动作前输出资金调度卡（现金储备≥30%、单笔预算≤2%降档1%），处理建仓/加仓/减仓/空仓/清仓、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md） |
 | [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化股票交易工作区：创建目录与种子文件，收集交易费用设置，并把归档规则写入 AGENTS.md |
