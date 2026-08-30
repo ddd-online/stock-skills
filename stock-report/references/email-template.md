@@ -5,7 +5,7 @@
 
 ## 使用说明（发送前删除本节）
 
-- 数据来源：ACCOUNT.md（账户）/ POSITION.md（持仓）/ stocks/<代码>/STOCK-REVIEW.md（持仓复盘）/ WATCHLIST.md（观察池与条件单）；行情用 fetch_quote.py 当日数据。
+- 数据来源：ACCOUNT.md（账户）/ POSITION.md（持仓）/ stocks/<纯数字代码>/STOCK-REVIEW.md（持仓复盘）/ WATCHLIST.md（观察池与条件单）；行情用 $market-data 当日数据。
 - {{...}} 为待填字段；当天没有内容的一行直接删掉，不留空行。
 - 触发止损/止盈/时间止损的持仓只给客观结论（标注「建议平仓」），不替用户下单。
 - 午间版数字标注「当日 {{日期}} 上午」；收盘版标注「截至 {{日期}} 收盘」。

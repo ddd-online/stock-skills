@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""个股资金流向获取（东方财富公开接口，无需密钥）。
+"""个股资金流向报告（东方财富公开接口，无需密钥）。
 
 用法:
     python fetch_capital_flow.py <代码> [--json]
 
 代码: 与 fetch_quote.py 相同，如 sh600410 / sz002491 / bj920002。
-输出: 最新交易日主力/超大单/大单/中单/小单净流入 + 近5日主力净流入趋势，
-配合量价判断放量是流入还是出货。
+输出: 资金流向报告——最新交易日主力/超大单/大单/中单/小单净流入 + 近5日主力净流入趋势，
+配合量价判断放量是流入还是出货；不产生缓存文件。
 """
 
 import argparse
@@ -114,38 +114,24 @@ def fetch(code):
     }
 
 
-def main():
-    ap = argparse.ArgumentParser(description="个股资金流向")
-    ap.add_argument("code", help="如 sh600410 / sz002491")
-    ap.add_argument("--json", action="store_true", help="输出JSON")
-    args = ap.parse_args()
-
-    code = args.code.lower().strip()
-    if to_secid(code) is None:
-        sys.exit("错误：代码格式应为 sh/sz/bj + 6位数字，如 sh600410。")
-    try:
-        result = fetch(code)
-    except Exception as exc:
-        sys.exit("错误：网络请求失败（{}）。请稍后重试。".format(exc))
-
+def build_payload(code):
+    result = fetch(code)
     if result["latest_day"] is None and not result["main_5d"]:
         sys.exit("错误：未获取到资金流向数据，请稍后重试。")
+    return {
+        "code": code,
+        "name": result["name"],
+        "latest_day": result["latest_day"],
+        "main_5d": result["main_5d"],
+        "note": "数据来源：东方财富资金流公开接口（单位：元）",
+    }
 
-    if args.json:
-        out = {
-            "code": code,
-            "name": result["name"],
-            "latest_day": result["latest_day"],
-            "main_5d": result["main_5d"],
-            "note": "数据来源：东方财富资金流公开接口（单位：元）",
-        }
-        print(json.dumps(out, ensure_ascii=False, indent=2))
-        return
 
+def print_text(code, payload):
     print("=" * 84)
-    print("个股资金流向 · {}（{}）".format(result["name"] or code, code))
+    print("个股资金流向 · {}（{}）".format(payload.get("name") or code, code))
     print("=" * 84)
-    latest = result["latest_day"]
+    latest = payload["latest_day"]
     if latest:
         print("最新交易日 {}：".format(latest["date"]))
         print("  主力净流入 {:>12} 万元".format(fmt_wan(latest["main"])))
@@ -156,10 +142,11 @@ def main():
     else:
         print("最新交易日明细：无数据")
     print("-" * 84)
-    if result["main_5d"]:
+    main5 = payload["main_5d"]
+    if main5:
         print("近5日主力净流入：")
         total = 0
-        for r in result["main_5d"]:
+        for r in main5:
             total += r["main"] or 0
             print("  {}  {:>12} 万元".format(r["date"], fmt_wan(r["main"])))
         print("  合计      {:>12} 万元".format(fmt_wan(total)))
@@ -167,6 +154,28 @@ def main():
         print("近5日主力净流入：无数据")
     print("=" * 84)
     print("注：数据来源为东方财富资金流公开接口；单位万元，正=净流入，负=净流出。")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="个股资金流向报告")
+    ap.add_argument("code", help="如 sh600410 / sz002491")
+    ap.add_argument("--json", action="store_true", help="输出JSON")
+    args = ap.parse_args()
+
+    code = args.code.lower().strip()
+    if to_secid(code) is None:
+        sys.exit("错误：代码格式应为 sh/sz/bj + 6位数字，如 sh600410。")
+
+    try:
+        payload = build_payload(code)
+    except Exception as exc:
+        sys.exit("错误：网络请求失败（{}）。请稍后重试。".format(exc))
+
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    print_text(code, payload)
 
 
 if __name__ == "__main__":

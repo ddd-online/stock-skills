@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""A股/ETF 真实行情数据获取（腾讯公开接口，无需密钥）。
+"""A股/ETF 真实行情数据报告（腾讯公开接口，无需密钥）。
 
 用法:
     python fetch_quote.py <代码> [--days N] [--json]
@@ -10,7 +10,7 @@
     sz002491  通鼎互联
     sh510300  沪深300ETF
 
-输出: 实时报价 + 最近N根日K + MA5/10/20/60。
+输出: 行情报告——实时报价 + 最近N根日K + MA5/10/20/60；不产生缓存文件。
 """
 
 import argparse
@@ -115,36 +115,25 @@ def format_dt(dt):
     return "{}-{}-{} {}:{}:{}".format(dt[0:4], dt[4:6], dt[6:8], dt[8:10], dt[10:12], dt[12:14])
 
 
-def main():
-    ap = argparse.ArgumentParser(description="A股/ETF 真实行情数据")
-    ap.add_argument("code", help="如 sh600410 / sz002491 / sh510300")
-    ap.add_argument("--days", type=int, default=60, help="日K根数，默认60")
-    ap.add_argument("--json", action="store_true", help="输出JSON")
-    args = ap.parse_args()
-
-    code = args.code.lower().strip()
-    try:
-        quote = fetch_quote(code)
-        if quote is None:
-            sys.exit("错误：无法获取行情，请检查代码格式（sh/sz + 6位数字）。")
-        kline = fetch_kline(code, args.days)
-    except Exception as exc:
-        sys.exit("错误：网络请求失败（{}）。请稍后重试。".format(exc))
-
+def build_payload(code, days):
+    quote = fetch_quote(code)
+    if quote is None:
+        sys.exit("错误：无法获取行情，请检查代码格式（sh/sz + 6位数字）。")
+    kline = fetch_kline(code, days)
     closes = [b["close"] for b in kline if b["close"] is not None]
     mas = {n: compute_ma(closes, n) for n in (5, 10, 20, 60)}
+    return {
+        "quote": quote,
+        "kline": kline[-30:],
+        "ma": mas,
+        "note": "数据来源：腾讯行情公开接口",
+    }
 
-    if args.json:
-        out = {
-            "quote": quote,
-            "kline": kline[-30:],
-            "ma": mas,
-            "note": "数据来源：腾讯行情公开接口",
-        }
-        print(json.dumps(out, ensure_ascii=False, indent=2))
-        return
 
-    q = quote
+def print_text(code, payload):
+    q = payload["quote"]
+    mas = payload["ma"]
+    kline = payload["kline"]
     print("=" * 66)
     print("{} ({}) · 数据时间 {}".format(q["name"], code, format_dt(q["datetime"])))
     print("=" * 66)
@@ -157,7 +146,8 @@ def main():
         fmt_num(q["pe"]), fmt_num(q["pb"]), fmt_num(q["float_cap_yi"]), fmt_num(q["total_cap_yi"])))
     print("涨停 {}    跌停 {}".format(fmt_num(q["limit_up"]), fmt_num(q["limit_down"])))
     print("MA5 {}    MA10 {}    MA20 {}    MA60 {}".format(
-        fmt_num(mas[5], 3), fmt_num(mas[10], 3), fmt_num(mas[20], 3), fmt_num(mas[60], 3)))
+        fmt_num(mas.get(5), 3), fmt_num(mas.get(10), 3),
+        fmt_num(mas.get(20), 3), fmt_num(mas.get(60), 3)))
     print("-" * 66)
     print("最近{}根日K（日期 开 收 高 低 量）".format(min(len(kline), 15)))
     for b in kline[-15:]:
@@ -166,6 +156,26 @@ def main():
             fmt_num(b["high"]), fmt_num(b["low"]), fmt_int(b["volume"])))
     print("=" * 66)
     print("注：数据来源为腾讯行情公开接口；ETF 的 PE/PB 通常不适用。")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="A股/ETF 真实行情报告")
+    ap.add_argument("code", help="如 sh600410 / sz002491 / sh510300")
+    ap.add_argument("--days", type=int, default=60, help="日K根数，默认60")
+    ap.add_argument("--json", action="store_true", help="输出JSON")
+    args = ap.parse_args()
+
+    code = args.code.lower().strip()
+    try:
+        payload = build_payload(code, args.days)
+    except Exception as exc:
+        sys.exit("错误：网络请求失败（{}）。请稍后重试。".format(exc))
+
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    print_text(code, payload)
 
 
 if __name__ == "__main__":

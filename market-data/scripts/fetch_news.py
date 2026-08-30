@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""公司新闻与公告获取（东方财富新闻搜索 + 东方财富公告，公开接口，无需密钥）。
+"""公司新闻与公告报告（东方财富新闻搜索 + 东方财富公告，公开接口，无需密钥）。
 
 用法:
     python fetch_news.py <代码> [--news N] [--ann N] [--json]
 
 代码: 与 fetch_quote.py 相同，如 sh600410 / sz002491 / bj920002。
-输出: 最近N条新闻（东财，按股票名称关键词）与最近N条公告（东财），供“逻辑证伪”检查。
+输出: 新闻公告报告——最近N条新闻（东财，按股票名称关键词）与最近N条公告（东财），
+供“逻辑证伪”检查；不产生缓存文件。
 """
 
 import argparse
@@ -14,6 +15,8 @@ import json
 import sys
 import urllib.parse
 import urllib.request
+
+from fetch_quote import fetch_quote as fetch_quote_name
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -49,8 +52,7 @@ def http_get(url):
 
 
 def fetch_news(code, num):
-    from fetch_quote import fetch_quote as fetch_name
-    quote = fetch_name(code)
+    quote = fetch_quote_name(code)
     keyword = (quote or {}).get("name") or code[2:]
     payload = {
         "uid": "",
@@ -117,35 +119,23 @@ def fetch_announcements(code, num):
     return result
 
 
-def main():
-    ap = argparse.ArgumentParser(description="公司新闻与公告")
-    ap.add_argument("code", help="如 sh600410 / sz002491")
-    ap.add_argument("--news", type=int, default=5, help="新闻条数，默认5")
-    ap.add_argument("--ann", type=int, default=5, help="公告条数，默认5")
-    ap.add_argument("--json", action="store_true", help="输出JSON")
-    args = ap.parse_args()
+def build_payload(code, news_num, ann_num):
+    name, news = fetch_news(code, news_num)
+    anns = fetch_announcements(code, ann_num)
+    return {
+        "code": code,
+        "name": name,
+        "news": news,
+        "announcements": anns,
+        "note": "数据来源：东方财富新闻搜索 + 公告公开接口",
+    }
 
-    code = args.code.lower().strip()
-    if to_secid(code) is None:
-        sys.exit("错误：代码格式应为 sh/sz/bj + 6位数字，如 sh600410。")
-    try:
-        name, news = fetch_news(code, args.news)
-        anns = fetch_announcements(code, args.ann)
-    except Exception as exc:
-        sys.exit("错误：网络请求失败（{}）。请稍后重试。".format(exc))
 
-    if args.json:
-        out = {
-            "code": code,
-            "news": news,
-            "announcements": anns,
-            "note": "数据来源：新浪财经新闻 + 东方财富公告公开接口",
-        }
-        print(json.dumps(out, ensure_ascii=False, indent=2))
-        return
-
+def print_text(code, payload):
+    news = payload["news"]
+    anns = payload["announcements"]
     print("=" * 72)
-    print("公司新闻与公告 · {}（{}）".format(name, code))
+    print("公司新闻与公告 · {}（{}）".format(payload.get("name") or code, code))
     print("=" * 72)
     print("新闻（东方财富，最近{}条）：".format(len(news)))
     if not news:
@@ -162,6 +152,30 @@ def main():
             print("      {}".format(it["url"]))
     print("=" * 72)
     print("注：数据来源为东方财富新闻搜索与公告公开接口；用于“逻辑证伪”检查。")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="公司新闻与公告报告")
+    ap.add_argument("code", help="如 sh600410 / sz002491")
+    ap.add_argument("--news", type=int, default=5, help="新闻条数，默认5")
+    ap.add_argument("--ann", type=int, default=5, help="公告条数，默认5")
+    ap.add_argument("--json", action="store_true", help="输出JSON")
+    args = ap.parse_args()
+
+    code = args.code.lower().strip()
+    if to_secid(code) is None:
+        sys.exit("错误：代码格式应为 sh/sz/bj + 6位数字，如 sh600410。")
+
+    try:
+        payload = build_payload(code, args.news, args.ann)
+    except Exception as exc:
+        sys.exit("错误：网络请求失败（{}）。请稍后重试。".format(exc))
+
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    print_text(code, payload)
 
 
 if __name__ == "__main__":

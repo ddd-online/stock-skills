@@ -12,29 +12,29 @@ stock-skills/
 │   ├── SKILL.md            # Required: frontmatter (name, description) + workflow
 │   ├── agents/openai.yaml  # UI metadata: display_name, short_description, default_prompt
 │   ├── references/         # Chinese reference docs, loaded on demand
-│   ├── scripts/            # Python data-fetching scripts (standard library only)
-│   └── assets/             # Seed templates (setup-stock-workspace only)
+│   ├── scripts/            # Skill-specific scripts (standard library only); real-data fetching lives in market-data/scripts/
+│   └── assets/             # Seed templates owned by the responsible skill (e.g., setup-stock-workspace, stock-review)
 ├── README.md
 └── AGENTS.md
 ```
 
-Skills must stay self-contained: `SKILL.md` is the entry point; `references/` and `scripts/` load relative to it.
+Skills must stay self-contained: `SKILL.md` is the entry point; `references/` and `scripts/` load relative to it. Real-data fetching is centralized in `market-data`; other skills call `$market-data` instead of shipping their own fetch scripts.
 
 ## Build, Test, and Development Commands
 
 No build step or package manager. Scripts run directly with Python 3 and network access:
 
 ```bash
-python stock-analysis/scripts/fetch_quote.py sh600410 --days 60
-python stock-analysis/scripts/fetch_fundamentals.py sz002491
-python stock-analysis/scripts/fetch_news.py sh600410 --news 3 --ann 3
-python stock-analysis/scripts/fetch_capital_flow.py sh600410
+python market-data/scripts/fetch_quote.py sh600410 --days 60
+python market-data/scripts/fetch_fundamentals.py sz002491
+python market-data/scripts/fetch_news.py sh600410 --news 3 --ann 3
+python market-data/scripts/fetch_capital_flow.py sh600410
 ```
 
-They pull real quote and fundamentals data from Tencent and Eastmoney public endpoints (no API keys). Verify syntax without a live run:
+They pull real quote and fundamentals data from Tencent and Eastmoney public endpoints (no API keys) and print reports; no cache files are written. Verify syntax without a live run:
 
 ```bash
-python -m py_compile stock-analysis/scripts/fetch_quote.py
+python -m py_compile market-data/scripts/fetch_quote.py
 ```
 
 ## Coding Style & Naming Conventions

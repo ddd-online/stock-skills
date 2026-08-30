@@ -1,0 +1,4 @@
+interface:
+  display_name: "市场数据（行情/财报/新闻/资金流）"
+  short_description: "拉取A股/ETF真实行情、财报、新闻公告与资金流向并输出数据报告，供各 SKILL 使用"
+  default_prompt: "使用 $market-data 拉取 sh600410 的最新行情与财报数据"
