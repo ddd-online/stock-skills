@@ -1,4 +1,0 @@
-interface:
-  display_name: "交易规则清单生成"
-  short_description: "根据本金、最大亏损预算和风险偏好，生成六格个人交易规则清单与下单前六问"
-  default_prompt: "使用 $trade-rules-generate 帮我生成一份个人交易规则清单（本金5000元）"

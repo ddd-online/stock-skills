@@ -9,11 +9,10 @@
 | Skill | 作用 |
 |---|---|
 | [market-data](market-data/) | 数据层：统一拉取 A 股/ETF 真实行情、财报、新闻公告与资金流向并输出数据报告，供其他 skill 调用 |
-| [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股/ETF 并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；资金调度由 position-management 确认 |
+| [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股/ETF 并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；建仓/加仓信号同步生成/追加个股六格交易规则（TRADE-RULES.md）；资金调度由 position-management 确认 |
 | [watchlist-review](watchlist-review/) | 审视观察池：逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查（价格位置/量能/新信息/买入理由/心态），结果写入 STOCK-REVIEW.md |
 | [stock-report](stock-report/) | 每日复盘（午间 11:45 精简版 / 收盘 15:15 完整版）：持仓检查 + 观察池更新 + 生成复盘邮件（agently-mail 发送，无邮箱则写 report/ 报告），收盘后清理临时文件 |
-| [trade-rules-generate](trade-rules-generate/) | stock-analysis 输出建仓/加仓信号后自动调用，生成六格交易规则（选什么/何时买/买多少/错了怎么办/对了怎么办/交易后），持仓期间严格遵守；加仓时追加新规则，历史保留、以最新为准 |
 | [position-management](position-management/) | 持仓生命周期管理与资金调度：每次动作前输出资金调度卡（现金储备≥30%、单笔预算≤2%降档1%），处理建仓/加仓/减仓/空仓/清仓、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md） |
 | [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化股票交易工作区：创建目录与种子文件，收集交易费用设置，并把归档规则写入 AGENTS.md |
 
@@ -24,7 +23,7 @@
 ```bash
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo ddd-online/stock-skills \
-  --path market-data stock-analysis watchlist-review stock-review trade-rules-generate \
+  --path market-data stock-analysis watchlist-review stock-review \
          position-management setup-stock-workspace
 ```
 
@@ -49,7 +48,7 @@ python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github
 
 ```
 输入股票名称 → stock-analysis 分析（含新闻/公告与资金流向）→ 输出四动作信号
-  ├─ 建仓/加仓 → trade-rules-generate 生成/追加六格交易规则（持仓期间严格遵守）
+  ├─ 建仓/加仓 → stock-analysis 同步生成/追加六格交易规则（持仓期间严格遵守）
   │             → position-management 资金调度确认（资金调度卡）并执行
   ├─ 减仓/空仓 → position-management 资金调度执行（减仓/清仓结算）
   ├─ 观察（中间态）→ 进观察池等待，watchlist-review 定期审视
@@ -58,7 +57,7 @@ python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github
 → 用户清仓后告知 position-management 卖出价 → 平仓复盘与总结（TRADE-SUMMARY → TRADE-STATS 四指标 → history 归档）
 ```
 
-trade-rules-generate 在 stock-analysis 输出「建仓/加仓」信号后自动调用，生成该股专属的六格交易规则；加仓时在文件末尾追加新规则，历史规则保留、以最新为准。持仓期间严格遵守，不临时修改。生成规则后由 position-management 做资金调度确认并执行建仓/加仓；「减仓/空仓」信号直接由 position-management 做资金调度（减仓/清仓）。持仓期间的每日检查由 stock-review 负责，清仓后的平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档）由 position-management 负责。
+stock-analysis 在输出「建仓/加仓」信号时同步生成/追加该股专属六格交易规则（写入 TRADE-RULES.md）；加仓时在文件末尾追加新规则，历史规则保留、以最新为准。持仓期间严格遵守，不临时修改。生成规则后由 position-management 做资金调度确认并执行建仓/加仓；「减仓/空仓」信号直接由 position-management 做资金调度（减仓/清仓）。持仓期间的每日检查由 stock-review 负责，清仓后的平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档）由 position-management 负责。
 
 每笔清仓后 position-management 把交易记录写入根目录 TRADE-STATS.md，每 5-10 笔结算胜率、平均盈亏、期望值、最大回撤，用统计判断系统是否有效、下一步该改哪一端（入场端/出场端），一次只改一条规则。
 
@@ -67,12 +66,12 @@ trade-rules-generate 在 stock-analysis 输出「建仓/加仓」信号后自动
 调用约束：
 - 前置：所有 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
 - 所有 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
-- stock-analysis 输出建仓/加仓信号后，才依次调用 trade-rules-generate → position-management；减仓/空仓信号直接调用 position-management
+- stock-analysis 输出建仓/加仓信号并生成/追加交易规则后，才调用 position-management；减仓/空仓信号直接调用 position-management
 - 资金调度（现金储备、单笔预算、批次、手数）全部由 position-management 确认；stock-analysis 只输出信号、锚点与建议
 - watchlist-review 审视观察池时逐个自动调用 stock-analysis；观察池进出由 stock-analysis 信号决定（观察→进池等待、空仓信号→移除）
 - stock-review 只检查 POSITION.md 中的持仓；触发止损/止盈/时间止损时只给出平仓结论，不强制下单（可能不在交易时段）
 - 用户卖出后调用 position-management 告知卖出价，由它按实际成交价结算并完成平仓总结与归档
-- trade-rules-generate 加仓追加必须有「加仓」信号、POSITION.md 持仓与已有 TRADE-RULES.md，缺一不追加
+- stock-analysis 加仓追加规则必须有「加仓」信号、POSITION.md 持仓与已有 TRADE-RULES.md，缺一不追加
 
 工作区归档规则由 setup-stock-workspace 写入 AGENTS.md，首次交易前先运行它初始化。
 

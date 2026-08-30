@@ -13,7 +13,7 @@ stock-skills/
 │   ├── agents/openai.yaml  # UI metadata: display_name, short_description, default_prompt
 │   ├── references/         # Chinese reference docs, loaded on demand
 │   ├── scripts/            # Skill-specific scripts (standard library only); real-data fetching lives in market-data/scripts/
-│   └── assets/             # Seed templates owned by the responsible skill (e.g., setup-stock-workspace, stock-review)
+│   └── assets/             # Seed templates owned by the responsible skill (e.g., setup-stock-workspace, stock-review, position-management)
 ├── README.md
 └── AGENTS.md
 ```
