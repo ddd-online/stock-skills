@@ -41,7 +41,7 @@ python -m py_compile market-data/scripts/fetch_quote.py
 
 - Python: 4-space indentation, `snake_case` functions and variables, UTF-8 encoding, module docstring.
 - Standard library only — never add third-party dependencies.
-- Skill directories use kebab-case (`stock-review`); scripts use `snake_case.py` (`fetch_quote.py`); generated workspace stock folders use pure digits (`600410`).
+- Skill directories use kebab-case (`stock-review`); scripts use `snake_case.py` (`fetch_quote.py`); generated workspace stock folders use name-code format (`华胜天成-600410`).
 - All files are UTF-8; scripts reconfigure stdout to UTF-8 for non-ASCII terminals.
 
 ## Testing Guidelines

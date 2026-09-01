@@ -8,15 +8,15 @@
 | 4 | MUST.md | 个人交易风格与必守规则，所有 SKILL 必须遵守 |
 | 5 | WATCHLIST.md | 观察池（标的/触发条件/预案/状态），由 stock-analysis 判定进出，watchlist-review 定期审视 |
 | 6 | TRADE-STATS.md | 账户级交易统计：每笔清仓填一行（日期/股票/方向/价格/盈亏/是否符合系统/违规说明），每 5-10 笔结算胜率/平均盈亏/期望值/最大回撤 |
-| 7 | stocks/<纯数字代码>/ | 每只股票一个文件夹，文件夹名=纯数字代码（如 600410），首次交易该股时创建 |
-| 8 | stocks/<纯数字代码>/STOCK-REVIEW.md | 个股每日检查记录，由 stock-review 首次检查时按自己的模板创建并写入 |
-| 9 | stocks/<纯数字代码>/TRADE-RULES.md | 个股交易规则，由 stock-analysis 首次生成时创建并写入，交易期间严格遵守 |
-| 10 | stocks/<纯数字代码>/TRADE-SUMMARY.md | 个股交易记录与总结：逐笔追加交易记录，清仓补写盈亏与总结；由 position-management 维护，清仓后归档 |
-| 11 | stocks/<纯数字代码>/history/YYYY-MM-DD/ | 清仓归档目录：把 TRADE-RULES.md、STOCK-REVIEW.md、TRADE-SUMMARY.md 移动到此 |
+| 7 | stocks/<股票名称-股票代码>/ | 每只股票一个文件夹，文件夹名=股票名称-股票代码（如 华胜天成-600410），名称以 POSITION.md / $market-data 返回为准，首次交易该股时创建 |
+| 8 | stocks/<股票名称-股票代码>/STOCK-REVIEW.md | 个股每日检查记录，由 stock-review 首次检查时按自己的模板创建并写入 |
+| 9 | stocks/<股票名称-股票代码>/TRADE-RULES.md | 个股交易规则，由 stock-analysis 首次生成时创建并写入，交易期间严格遵守 |
+| 10 | stocks/<股票名称-股票代码>/TRADE-SUMMARY.md | 个股交易记录与总结：逐笔追加交易记录，清仓补写盈亏与总结；由 position-management 维护，清仓后归档 |
+| 11 | stocks/<股票名称-股票代码>/history/YYYY-MM-DD/ | 清仓归档目录：把 TRADE-RULES.md、STOCK-REVIEW.md、TRADE-SUMMARY.md 移动到此 |
 
 ## 命名与生命周期
 
-- 股票代码文件夹：纯数字代码（如 600410），首次实盘交易该股时创建，不建"股票代码"占位文件夹
+- 股票文件夹：股票名称-股票代码（如 华胜天成-600410），首次实盘交易该股时创建，不建"股票名称-股票代码"占位文件夹
 - history 目录：清仓当日创建（YYYY-MM-DD 格式）
 - 归档动作：清仓 → 写 TRADE-SUMMARY.md → 三个文件**移动**到 history/日期/（归档=移动，工作区不留副本；下次交易该股时由对应 SKILL 重新生成）
 - 写入规则：已存在的文件不覆盖；空文件用种子模板填充

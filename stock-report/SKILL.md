@@ -9,13 +9,13 @@ description: A股交易日每日复盘（午间 11:45 精简版 / 收盘 15:15 �
 
 - 触发：A股交易日 11:45（午间复盘）与 15:15（收盘复盘）定时触发，或用户直接请求。
 - 前置：当日为 A 股交易日（非周末、非法定节假日）且当前时间 ≥ 触发时间；非交易日直接结束——不读写文件、不调用行情与邮件接口。
-- 依赖：ACCOUNT.md、POSITION.md、WATCHLIST.md、stocks/<纯数字代码>/、AGENTS.md（邮件章节取收件人）；协作 skill：$stock-review（持仓检查）、$watchlist-review / $stock-analysis（观察池）、$agently-mail（发邮件）、$market-data（行情/新闻/资金数据）。
+- 依赖：ACCOUNT.md、POSITION.md、WATCHLIST.md、stocks/<股票名称-股票代码>/、AGENTS.md（邮件章节取收件人）；协作 skill：$stock-review（持仓检查）、$watchlist-review / $stock-analysis（观察池）、$agently-mail（发邮件）、$market-data（行情/新闻/资金数据）。
 
 ## 两种模式
 
 | 步骤 | 午间复盘（11:45） | 收盘复盘（15:15） |
 |---|---|---|
-| 1. 持仓检查 | $stock-review 精简输出；不写 STOCK-REVIEW.md | $stock-review 完整输出；写入 stocks/<纯数字代码>/STOCK-REVIEW.md，回写 POSITION.md 现价与浮动盈亏 |
+| 1. 持仓检查 | $stock-review 精简输出；不写 STOCK-REVIEW.md | $stock-review 完整输出；写入 stocks/<股票名称-股票代码>/STOCK-REVIEW.md，回写 POSITION.md 现价与浮动盈亏 |
 | 2. 观察池 | 仅更新 WATCHLIST.md 状态（等待/信号触发/移除），不跑完整分析 | 对池内每只标的执行 $stock-analysis 完整分析后更新 WATCHLIST.md |
 | 3. 邮件正文 | 按 references/email-template.md「午间版」 | 按 references/email-template.md「收盘版」 |
 | 4. 发送 / 生成报告 | 收件人从 AGENTS.md 读取；有邮箱则 $agently-mail 发送，无邮箱则生成 report/ 报告文件 | 同左 |

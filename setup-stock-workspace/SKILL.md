@@ -1,6 +1,6 @@
 ---
 name: setup-stock-workspace
-description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、history/YYYY-MM-DD/；stocks/股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 分别由 stock-review、stock-analysis、position-management 首次生成时创建），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥30%、单笔预算≤2%、当前档位）写入 ACCOUNT.md，收集复盘/通知邮件收件人写入 AGENTS.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
+description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、history/YYYY-MM-DD/；stocks/股票名称-股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 分别由 stock-review、stock-analysis、position-management 首次生成时创建），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥30%、单笔预算≤2%、当前档位）写入 ACCOUNT.md，收集复盘/通知邮件收件人写入 AGENTS.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
 ---
 
 # Setup Stock Workspace
@@ -27,7 +27,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 向用户展示模板映射（见 [references/template-map.md](./references/template-map.md)），逐项确认：
 
 - 目录/文件用途（11 项）是否符合预期
-- 股票代码文件夹命名：纯数字代码（如 600410）
+- 股票文件夹命名：股票名称-股票代码（如 华胜天成-600410；名称以 POSITION.md 或 $market-data 返回为准，不编造）
 - AGENTS.md：存在时原地更新 `## 股票交易工作区` 区块；不存在则新建
 - 交易费用设置（用于每次交易的费用计算，写入 ACCOUNT.md）：
   - 佣金费率：默认万2.5，向用户确认券商实际费率（如万1.5）
@@ -54,7 +54,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 
 规则：
 
-- 首次实盘交易某只股票时，创建 stocks/<纯数字代码>/（如 600410）+ history/ 目录；STOCK-REVIEW.md 由 stock-review、TRADE-RULES.md 由 stock-analysis、TRADE-SUMMARY.md 由 position-management 首次生成时创建
+- 首次实盘交易某只股票时，创建 stocks/<股票名称-股票代码>/（如 华胜天成-600410）+ history/ 目录；STOCK-REVIEW.md 由 stock-review、TRADE-RULES.md 由 stock-analysis、TRADE-SUMMARY.md 由 position-management 首次生成时创建
 - 清仓时：创建 history/YYYY-MM-DD/，把 STOCK-REVIEW.md / TRADE-RULES.md / TRADE-SUMMARY.md **移动**到该目录（归档=移动，工作区不留副本）；下次交易该股时由 stock-review / stock-analysis / position-management 分别重新生成
 - 已存在的文件不覆盖；空文件用种子模板填充；全部 UTF-8 编码
 - 按确认结果填写 ACCOUNT.md 的交易费用设置；缺失或未确认的项用默认值并标注“默认值，待确认”
@@ -76,13 +76,13 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 - WATCHLIST.md：观察池（标的/类型/体检结论/触发条件/止损止盈预案/状态），由 stock-analysis 判定进出池，watchlist-review 定期审视更新
 - TRADE-STATS.md：交易统计表（每笔清仓填一行；每 5-10 笔结算胜率/平均盈亏/期望值/最大回撤，用统计判断系统是否有效），由 position-management 更新
 - report/：复盘报告输出目录（AGENTS.md 未配置邮箱时，复盘邮件正文以 md 文件保存到此处），由 stock-report 写入
-- stocks/<纯数字代码>/：每只股票一个文件夹（纯数字代码）
+- stocks/<股票名称-股票代码>/：每只股票一个文件夹（名称-代码，如 华胜天成-600410；名称以 POSITION.md / $market-data 为准，不编造）
   - STOCK-REVIEW.md：个股每日检查（stock-review 首次检查时按自己的模板创建并写入）
   - TRADE-RULES.md：个股交易规则（stock-analysis 生成，交易期间严格遵守）
   - TRADE-SUMMARY.md：个股交易记录与总结（position-management 按自己的模板创建：建仓/加仓/减仓/清仓逐笔追加交易记录，清仓时补写本次盈亏与总结）
   - history/YYYY-MM-DD/：清仓后将上述三个文件**移动**到该日期目录归档（工作区不留副本，下次交易重新生成）
 
-stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其代码文件夹。
+stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其「股票名称-股票代码」文件夹。
 
 ### 交易生命周期
 

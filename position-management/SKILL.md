@@ -94,7 +94,7 @@ description: 管理持仓的完整生命周期与全部资金调度：建仓（�
 2. 执行层（查纪律）：逐条对照该股 TRADE-RULES.md 的规则与下单前六问，标注每条执行了没有，给出纪律得分。执行与判断分开记：止损做对了就是做对了，不因结果亏钱而否定。
 3. 判断层（判对错）：当初的买入理由后来成立了吗？判断对错，不和运气混在一起。
 4. 改进层（出规则）：流程哪里改？提炼至少一条可落地规则，写回该股 TRADE-RULES.md（规则修订，历史保留），关键教训沉淀到 NOTES.md。
-5. 补写 TRADE-SUMMARY.md：文件已在建仓时按本 SKILL 的 assets/TRADE-SUMMARY.md 模板创建，并随建仓/加仓/减仓/清仓逐笔追加交易记录；此处补写「本次盈亏」与「总结」（写入 stocks/<纯数字代码>/），总结内容参考 references/exit-summary-template.md 的四层复盘（事实→执行→判断→改进），不写账户级累计指标。
+5. 补写 TRADE-SUMMARY.md：文件已在建仓时按本 SKILL 的 assets/TRADE-SUMMARY.md 模板创建，并随建仓/加仓/减仓/清仓逐笔追加交易记录；此处补写「本次盈亏」与「总结」（写入 stocks/<股票名称-股票代码>/），总结内容参考 references/exit-summary-template.md 的四层复盘（事实→执行→判断→改进），不写账户级累计指标。
 6. 更新四指标统计：把该笔（日期/股票/方向/价格/盈亏/是否符合系统/违规说明）写入工作区 TRADE-STATS.md；攒够 5-10 笔后按 TRADE-STATS.md「公式速查」结算四指标（胜率/平均盈亏/期望值/最大回撤），判断系统是否有效、亏损在入场端还是出场端；一次只改一条规则。触发 ACCOUNT.md「资金规则」的降档条件（连亏/回撤等）时按规则降档（仓位减半/金额减半），档位写回 ACCOUNT.md 资金规则。
 7. 归档：把 TRADE-RULES.md / STOCK-REVIEW.md / TRADE-SUMMARY.md **移动**到 history/YYYY-MM-DD/（归档=移动，工作区不留副本；下次交易该股重新生成）。
 
