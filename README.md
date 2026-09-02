@@ -2,19 +2,20 @@
 
 中文 A 股实盘交易辅助的 Codex skills 集合，覆盖「分析 → 计划 → 建仓 → 持仓 → 清仓 → 复盘」完整交易生命周期。每个 skill 独立自包含（SKILL.md + references + scripts），真实数据统一由 market-data 拉取（腾讯行情接口、东方财富财报/新闻/资金流接口）并输出数据报告，无需密钥。
 
-当前版本：2.6.0 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
+当前版本：2.7.0 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
 
 ## Skills 一览
 
 | Skill | 作用 |
 |---|---|
-| [market-data](market-data/) | 数据层：统一拉取 A 股/ETF 真实行情、财报、新闻公告与资金流向并输出数据报告，供其他 skill 调用 |
+| [market-data](market-data/) | 数据层：统一拉取 A 股/ETF 真实行情、财报、新闻公告、资金流向与强势股榜单并输出数据报告，供其他 skill 调用 |
 | [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股/ETF 并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；建仓/加仓信号同步生成/追加个股六格交易规则（TRADE-RULES.md）；资金调度由 position-management 确认 |
+| [buying-at-close](buying-at-close/) | 尾盘买入审视：14:30 后拉取大盘与强势股榜（默认换手 5%–30%），逐只过六问过滤并对照 MUST「尾盘买入法执行规则」输出「买入/不买」报告；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
 | [watchlist-review](watchlist-review/) | 审视观察池：逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查（价格位置/量能/新信息/买入理由/心态），结果写入 STOCK-REVIEW.md |
 | [stock-report](stock-report/) | 每日复盘（午间 11:45 精简版 / 收盘 15:15 完整版）：持仓检查 + 观察池更新 + 生成复盘邮件（agently-mail 发送，无邮箱则写 report/ 报告），收盘后清理临时文件 |
 | [position-management](position-management/) | 持仓生命周期管理与资金调度：每次动作前输出资金调度卡（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%降档1%；实际可用资产=本金+总盈亏−累计支取），处理建仓/加仓/减仓/空仓/清仓、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md） |
-| [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化股票交易工作区：创建目录与种子文件，收集交易费用设置，并把归档规则写入 AGENTS.md |
+| [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化股票交易工作区：创建目录与种子文件，收集交易费用设置，并把目录/文件规则、SKILL 版本与升级约束、条件单规则与状态更新规则写入 AGENTS.md |
 
 ## 安装（Codex）
 
@@ -23,8 +24,8 @@
 ```bash
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo ddd-online/stock-skills \
-  --path market-data stock-analysis watchlist-review stock-review \
-         position-management setup-stock-workspace
+  --path market-data stock-analysis buying-at-close watchlist-review \
+         stock-review stock-report position-management setup-stock-workspace
 ```
 
 逐个安装示例：
