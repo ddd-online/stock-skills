@@ -2,7 +2,7 @@
 
 中文 A 股实盘交易辅助的 Codex skills 集合，覆盖「分析 → 计划 → 建仓 → 持仓 → 清仓 → 复盘」完整交易生命周期。每个 skill 独立自包含（SKILL.md + references + scripts），真实数据统一由 market-data 拉取（腾讯行情接口、东方财富财报/新闻/资金流接口）并输出数据报告，无需密钥。
 
-当前版本：2.5.0 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
+当前版本：2.6.0 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
 
 ## Skills 一览
 
@@ -13,7 +13,7 @@
 | [watchlist-review](watchlist-review/) | 审视观察池：逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查（价格位置/量能/新信息/买入理由/心态），结果写入 STOCK-REVIEW.md |
 | [stock-report](stock-report/) | 每日复盘（午间 11:45 精简版 / 收盘 15:15 完整版）：持仓检查 + 观察池更新 + 生成复盘邮件（agently-mail 发送，无邮箱则写 report/ 报告），收盘后清理临时文件 |
-| [position-management](position-management/) | 持仓生命周期管理与资金调度：每次动作前输出资金调度卡（现金储备≥30%、单笔预算≤2%降档1%），处理建仓/加仓/减仓/空仓/清仓、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md） |
+| [position-management](position-management/) | 持仓生命周期管理与资金调度：每次动作前输出资金调度卡（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%降档1%；实际可用资产=本金+总盈亏−累计支取），处理建仓/加仓/减仓/空仓/清仓、平仓复盘与总结（生成 TRADE-SUMMARY.md 并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md） |
 | [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化股票交易工作区：创建目录与种子文件，收集交易费用设置，并把归档规则写入 AGENTS.md |
 
 ## 安装（Codex）
