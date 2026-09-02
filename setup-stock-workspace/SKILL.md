@@ -1,6 +1,6 @@
 ---
 name: setup-stock-workspace
-description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、history/YYYY-MM-DD/；stocks/股票名称-股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 分别由 stock-review、stock-analysis、position-management 首次生成时创建），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥30%、单笔预算≤2%、当前档位）写入 ACCOUNT.md，收集复盘/通知邮件收件人写入 AGENTS.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
+description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、history/YYYY-MM-DD/；stocks/股票名称-股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 分别由 stock-review、stock-analysis、position-management 首次生成时创建），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%、当前档位；实际可用资产=本金+总盈亏−累计支取）写入 ACCOUNT.md，收集复盘/通知邮件收件人写入 AGENTS.md，填入种子模板，并把目录与文件规则写入 AGENTS.md，让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
 ---
 
 # Setup Stock Workspace
@@ -28,6 +28,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 
 - 目录/文件用途（11 项）是否符合预期
 - 股票文件夹命名：股票名称-股票代码（如 华胜天成-600410；名称以 POSITION.md 或 $market-data 返回为准，不编造）
+- 账户口径（写入 ACCOUNT.md「账户总览」与「资金规则」）：本金只可追加；支取只减现金并计入累计支取，不减本金与盈亏；实际可用资产 = 本金 + 总盈亏 − 累计支取；现金储备红线（默认 30%）与单笔预算（默认 2%，连亏 2 笔降 1%）均按实际可用资产计算
 - AGENTS.md：存在时原地更新 `## 股票交易工作区` 区块；不存在则新建
 - 交易费用设置（用于每次交易的费用计算，写入 ACCOUNT.md）：
   - 佣金费率：默认万2.5，向用户确认券商实际费率（如万1.5）
@@ -57,7 +58,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 - 首次实盘交易某只股票时，创建 stocks/<股票名称-股票代码>/（如 华胜天成-600410）+ history/ 目录；STOCK-REVIEW.md 由 stock-review、TRADE-RULES.md 由 stock-analysis、TRADE-SUMMARY.md 由 position-management 首次生成时创建
 - 清仓时：创建 history/YYYY-MM-DD/，把 STOCK-REVIEW.md / TRADE-RULES.md / TRADE-SUMMARY.md **移动**到该目录（归档=移动，工作区不留副本）；下次交易该股时由 stock-review / stock-analysis / position-management 分别重新生成
 - 已存在的文件不覆盖；空文件用种子模板填充；全部 UTF-8 编码
-- 按确认结果填写 ACCOUNT.md 的交易费用设置；缺失或未确认的项用默认值并标注“默认值，待确认”
+- 按确认结果填写 ACCOUNT.md 的交易费用设置与资金规则（账户口径见第 2 步）；缺失或未确认的项用默认值并标注“默认值，待确认”
 - report/ 为复盘报告输出目录（初始为空）：AGENTS.md 未配置邮箱时，stock-report 将复盘邮件正文以 md 文件保存到此处
 
 ## 4. 写入 AGENTS.md
@@ -69,7 +70,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 
 ### 目录与文件规则
 
-- ACCOUNT.md：账户总览（本金、现金、总盈亏、资金变化记录）+ 交易费用设置（佣金费率/最低佣金/印花税/过户费）+ 资金规则（现金储备≥30%、单笔预算≤2%、当前档位），每次资金变动后更新
+- ACCOUNT.md：账户总览（本金、现金、总盈亏、累计支取、实际可用资产、资金变化记录）+ 交易费用设置（佣金费率/最低佣金/印花税/过户费）+ 资金规则（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%、当前档位；实际可用资产=本金+总盈亏−累计支取；本金只可追加、支取只减现金并计入累计支取、总盈亏只由已实现交易产生），每次资金变动（买卖/追加/支取/盈亏结算）后重算并更新
 - NOTES.md：复盘后沉淀的知识、教训、准则，逐条记录
 - POSITION.md：当前持仓状态（仓位、成本、止损止盈），买入/卖出后立即更新
 - MUST.md：个人交易风格与必须遵守的规则（默认只有一个标题，用户自行编辑），所有 SKILL 必须遵守
