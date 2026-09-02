@@ -5,9 +5,11 @@
 用法:
     python fetch_strong_stocks.py [--top N] [--board all|hs|main|cyb|kcb|bj|etf]
                                   [--min-turnover PCT] [--max-turnover PCT]
+                                  [--min-gain PCT] [--max-gain PCT]
                                   [--include-st] [--json]
 
-输出: 强势股榜单报告——按涨跌幅从高到低返回 Top N 候选
+输出: 强势股榜单报告——按涨跌幅从高到低返回 Top N 候选；指定涨幅区间
+（--min-gain/--max-gain，如 3–5%）时自动翻页拉全区间再过滤（接口单页上限 100）
 （代码/名称/现价/涨跌幅/量比/换手/成交额/振幅/PE/主力净流入/行业，标注“涨停≈”），
 默认剔除 ST；不产生缓存文件。
 """
@@ -132,28 +134,47 @@ def is_limit_up(price, high, change_pct, digits):
     return price >= high - 1e-9 and change_pct >= threshold - 0.4
 
 
-def fetch_rows(board, top):
+def fetch_page(board, page_no, page_size):
     last_error = None
     for host in HOSTS:
         try:
             url = (
-                "{host}/api/qt/clist/get?pn=1&pz={top}&po=1&np=1&fltt=2&invt=2"
+                "{host}/api/qt/clist/get?pn={pn}&pz={pz}&po=1&np=1&fltt=2&invt=2"
                 "&fid=f3&fs={fs}&fields={fields}"
-            ).format(host=host, top=top, fs=BOARDS[board], fields=FIELDS)
+            ).format(host=host, pn=page_no, pz=page_size,
+                     fs=BOARDS[board], fields=FIELDS)
             data = decode_json(http_get(url))
             node = data.get("data") or {}
             diff = node.get("diff") or []
             if data.get("rc") != 0 or not diff:
-                last_error = "接口无数据 rc={}".format(data.get("rc"))
+                last_error = "第 {} 页接口无数据 rc={}".format(page_no, data.get("rc"))
                 continue
             return diff
         except Exception as exc:  # noqa: BLE001 网络或解析失败时切换备用源
             last_error = str(exc)
             continue
-    raise RuntimeError("东方财富接口拉取失败：{}".format(last_error))
+    raise RuntimeError("东方财富接口第 {} 页拉取失败：{}".format(page_no, last_error))
 
 
-def normalize_rows(diff, min_turnover, max_turnover, include_st):
+def fetch_raw(board, top, min_gain, max_gain):
+    """无涨幅过滤时只取涨幅榜前 top；有涨幅区间时自动翻页直到覆盖区间下限。"""
+    if min_gain <= 0 and max_gain <= 0:
+        return fetch_page(board, 1, top)
+    page_size = 100
+    max_pages = 60  # 覆盖全市场约 5500+ 只
+    collected = []
+    for page_no in range(1, max_pages + 1):
+        page = fetch_page(board, page_no, page_size)
+        if not page:
+            break
+        collected.extend(page)
+        last_pct = to_float(page[-1].get("f3"))
+        if min_gain > 0 and (last_pct is None or last_pct < min_gain):
+            break
+    return collected
+
+
+def normalize_rows(diff, min_turnover, max_turnover, min_gain, max_gain, include_st):
     rows = []
     for raw in diff:
         digits = str(raw.get("f12") or "")
@@ -170,6 +191,10 @@ def normalize_rows(diff, min_turnover, max_turnover, include_st):
         price = to_float(raw.get("f2"))
         high = to_float(raw.get("f15"))
         change_pct = to_float(raw.get("f3"))
+        if min_gain > 0 and (change_pct is None or change_pct < min_gain):
+            continue
+        if max_gain > 0 and (change_pct is None or change_pct > max_gain):
+            continue
         sec_code = to_sec_code(str(raw.get("f13") or ""), digits)
         rows.append({
             "code": sec_code,
@@ -200,17 +225,30 @@ def turnover_desc(min_turnover, max_turnover):
     return "不过滤换手率"
 
 
-def render_text(rows, board, top, min_turnover, max_turnover, include_st, quote_time):
+def gain_desc(min_gain, max_gain):
+    if min_gain > 0 and max_gain > 0:
+        return "{}% ≤ 涨跌幅 ≤ {}%".format(fmt_num(min_gain), fmt_num(max_gain))
+    if min_gain > 0:
+        return "涨跌幅 ≥ {}%".format(fmt_num(min_gain))
+    if max_gain > 0:
+        return "涨跌幅 ≤ {}%".format(fmt_num(max_gain))
+    return "不过滤涨幅"
+
+
+def render_text(rows, board, top, min_turnover, max_turnover,
+                min_gain, max_gain, include_st, quote_time):
     lines = []
     lines.append("# 强势股榜（Top {top} · {board} · 数据时间 {time}）".format(
         top=top, board=BOARD_NAMES[board], time=quote_time))
     lines.append("")
     lines.append("排序：按涨跌幅从高到低；默认剔除 ST（名称含 ST）；"
-                 "换手率过滤：{desc}。数据未经验证，仅作尾盘审视初筛。".format(
-                     desc=turnover_desc(min_turnover, max_turnover)))
+                 "换手率过滤：{tdesc}；涨幅过滤：{gdesc}。"
+                 "数据未经验证，仅作尾盘审视初筛。".format(
+                     tdesc=turnover_desc(min_turnover, max_turnover),
+                     gdesc=gain_desc(min_gain, max_gain)))
     if len(rows) < top:
-        lines.append("注：涨幅榜前 {top} 中不满足过滤条件的已剔除，实际返回 {n} 只；"
-                     "需要更多候选请调大 --top。".format(top=top, n=len(rows)))
+        lines.append("注：过滤后实际返回 {n} 只（请求 {top} 只）；"
+                     "需要更多候选请调大 --top。".format(n=len(rows), top=top))
     lines.append("")
     header = "| # | 代码 | 名称 | 现价 | 涨跌幅% | 量比 | 换手% | 成交额(万) | 振幅% | PE | 主力净流入(万) | 行业 | 备注 |"
     sep = "|---|---|---|---|---|---|---|---|---|---|---|---|---|"
@@ -241,12 +279,17 @@ def main():
                         help="最低换手率过滤，如 5 表示 >5%（默认不过滤）")
     parser.add_argument("--max-turnover", type=float, default=0,
                         help="最高换手率过滤，如 30 表示 <30%（默认不过滤）")
+    parser.add_argument("--min-gain", type=float, default=0,
+                        help="最低涨幅过滤，如 3 表示 ≥3%（默认不过滤）")
+    parser.add_argument("--max-gain", type=float, default=0,
+                        help="最高涨幅过滤，如 5 表示 ≤5%（默认不过滤）")
     parser.add_argument("--include-st", action="store_true", help="不剔除名称含 ST 的股票")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     args = parser.parse_args()
 
-    diff = fetch_rows(args.board, args.top)
-    rows = normalize_rows(diff, args.min_turnover, args.max_turnover, args.include_st)
+    diff = fetch_raw(args.board, args.top, args.min_gain, args.max_gain)
+    rows = normalize_rows(diff, args.min_turnover, args.max_turnover,
+                          args.min_gain, args.max_gain, args.include_st)[:args.top]
     ts = next((r["ts"] for r in rows if r["ts"]), time.time())
     quote_time = fmt_dt(ts)
 
@@ -257,6 +300,8 @@ def main():
             "top": args.top,
             "min_turnover": args.min_turnover,
             "max_turnover": args.max_turnover,
+            "min_gain": args.min_gain,
+            "max_gain": args.max_gain,
             "include_st": args.include_st,
             "quote_time": quote_time,
             "rows": rows,
@@ -265,10 +310,12 @@ def main():
         return
 
     if not rows:
-        print("榜单为空：请调整过滤条件（--min-turnover / --max-turnover / --board / --include-st）后重试。")
+        print("榜单为空：请调整过滤条件（--min-turnover / --max-turnover / "
+              "--min-gain / --max-gain / --board / --include-st）后重试。")
         return
     print(render_text(rows, args.board, args.top, args.min_turnover,
-                      args.max_turnover, args.include_st, quote_time))
+                      args.max_turnover, args.min_gain, args.max_gain,
+                      args.include_st, quote_time))
 
 
 if __name__ == "__main__":

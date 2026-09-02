@@ -15,7 +15,7 @@ description: 拉取A股/ETF真实市场数据并输出数据报告（行情/日K
 | 财报报告 | scripts/fetch_fundamentals.py | 东方财富数据中心 | 最近N个报告期营收/净利及同比、毛利率、净利率、负债率、ROE |
 | 新闻公告报告 | scripts/fetch_news.py | 东方财富新闻搜索 + 公告 | 最近N条新闻与公告（时间/标题/来源/链接） |
 | 资金流向报告 | scripts/fetch_capital_flow.py | 东方财富资金流 | 最新交易日主力/大中小单净流入 + 近5日主力净流入 |
-| 强势股榜报告 | scripts/fetch_strong_stocks.py | 东方财富行情中心 | 按涨跌幅排序的 Top N 强势股榜（代码/名称/现价/涨跌幅/量比/换手/成交额/振幅/PE/主力净流入/行业，标注“涨停≈”），支持板块与换手率区间过滤（--min-turnover / --max-turnover），默认剔除 ST |
+| 强势股榜报告 | scripts/fetch_strong_stocks.py | 东方财富行情中心 | 按涨跌幅排序的 Top N 强势股榜（代码/名称/现价/涨跌幅/量比/换手/成交额/振幅/PE/主力净流入/行业，标注“涨停≈”），支持板块与换手率/涨幅区间过滤（--min-turnover/--max-turnover/--min-gain/--max-gain，如 3%–5%），默认剔除 ST |
 
 ## 使用方式
 
@@ -27,6 +27,7 @@ python market-data/scripts/fetch_fundamentals.py <代码> --periods 4
 python market-data/scripts/fetch_news.py <代码> --news 5 --ann 5
 python market-data/scripts/fetch_capital_flow.py <代码>
 python market-data/scripts/fetch_strong_stocks.py --top 20 --min-turnover 5 --max-turnover 30
+python market-data/scripts/fetch_strong_stocks.py --min-gain 3 --max-gain 5 --top 50
 ```
 
 代码格式：`sh600410` / `sz002491` / `bj920002`（sh=沪、sz=深、bj=北交所）。脚本默认输出中文报告，`--json` 输出 JSON；不产生任何缓存文件。
