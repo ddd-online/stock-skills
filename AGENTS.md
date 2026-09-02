@@ -29,6 +29,7 @@ python market-data/scripts/fetch_quote.py sh600410 --days 60
 python market-data/scripts/fetch_fundamentals.py sz002491
 python market-data/scripts/fetch_news.py sh600410 --news 3 --ann 3
 python market-data/scripts/fetch_capital_flow.py sh600410
+python market-data/scripts/fetch_strong_stocks.py --top 20
 ```
 
 They pull real quote and fundamentals data from Tencent and Eastmoney public endpoints (no API keys) and print reports; no cache files are written. Verify syntax without a live run:
