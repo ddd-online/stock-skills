@@ -5,7 +5,7 @@
 用法:
     python fetch_fundamentals.py <代码> [--periods N] [--json]
 
-代码: sh600410 / sz002498（ETF 无财报，会提示不适用）
+代码: sh600410 / sz002498
 输出: 财报报告——最近N个报告期的营业总收入、净利润、毛利率、净利率、负债率及同比；
 不产生缓存文件。
 
@@ -72,7 +72,7 @@ def fetch(code, size):
 def build_payload(code, size):
     rows = fetch(code, size)
     if not rows:
-        sys.exit("错误：未获取到财报数据（ETF 无财报，或代码有误）。")
+        sys.exit("错误：未获取到财报数据，请检查代码是否有误。")
     out = []
     for r in rows:
         out.append({

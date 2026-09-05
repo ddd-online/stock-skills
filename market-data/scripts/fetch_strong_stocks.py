@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""A股/ETF 强势股榜单数据报告（东方财富公开接口，无需密钥）。
+"""A股 强势股榜单数据报告（东方财富公开接口，无需密钥）。
 
 用法:
-    python fetch_strong_stocks.py [--top N] [--board all|hs|main|cyb|kcb|bj|etf]
+    python fetch_strong_stocks.py [--top N] [--board all|hs|main|cyb|kcb|bj]
                                   [--min-turnover PCT] [--max-turnover PCT]
                                   [--min-gain PCT] [--max-gain PCT]
                                   [--include-st] [--json]
@@ -30,7 +30,7 @@ HOSTS = [
 ]
 
 # fs 板块过滤：m:0=深市 m:1=沪市（t:6 主板、t:80 创业板、t:2 沪主板、t:23 科创板、
-# t:81+s:2048 北交所）；b:MK 系列为 ETF 板块
+# t:81+s:2048 北交所）
 BOARDS = {
     "all": "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048",
     "hs": "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23",
@@ -38,7 +38,6 @@ BOARDS = {
     "cyb": "m:0+t:80",
     "kcb": "m:1+t:23",
     "bj": "m:0+t:81+s:2048",
-    "etf": "b:MK0021,b:MK0022,b:MK0023,b:MK0024",
 }
 
 FIELDS = (
@@ -53,7 +52,6 @@ BOARD_NAMES = {
     "cyb": "创业板",
     "kcb": "科创板",
     "bj": "北交所",
-    "etf": "ETF",
 }
 
 
@@ -271,7 +269,7 @@ def render_text(rows, board, top, min_turnover, max_turnover,
 
 
 def main():
-    parser = argparse.ArgumentParser(description="A股/ETF 强势股榜单数据报告（东方财富公开接口）")
+    parser = argparse.ArgumentParser(description="A股 强势股榜单数据报告（东方财富公开接口）")
     parser.add_argument("--top", type=int, default=20, help="榜单数量（默认 20）")
     parser.add_argument("--board", choices=sorted(BOARDS), default="hs",
                         help="板块（默认 hs：沪深 A 股）")

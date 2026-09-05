@@ -1,11 +1,11 @@
 ---
 name: market-data
-description: 拉取A股/ETF真实市场数据并输出数据报告（行情/日K/MA、财报核心指标、新闻公告、资金流向、强势股榜，腾讯与东方财富公开接口，无需密钥）。其他 SKILL（stock-analysis、stock-review、position-management、stock-report、buying-at-close 等）需要行情/财报/新闻/资金/强势股榜单数据时调用本 SKILL，不自行重复实现。当用户请求“查行情、看报价、拉数据、查财报、看新闻公告、看资金流向、看涨幅榜、选强势股”或分析、复盘前需要真实数据时使用。
+description: 拉取A股真实市场数据并输出数据报告（行情/日K/MA、财报核心指标、新闻公告、资金流向、强势股榜，腾讯与东方财富公开接口，无需密钥）。其他 SKILL（stock-analysis、stock-review、position-management、stock-report、buying-at-close 等）需要行情/财报/新闻/资金/强势股榜单数据时调用本 SKILL，不自行重复实现。当用户请求“查行情、看报价、拉数据、查财报、看新闻公告、看资金流向、看涨幅榜、选强势股”或分析、复盘前需要真实数据时使用。
 ---
 
 # 市场数据报告（market-data）
 
-数据层 SKILL：统一拉取 A 股/ETF 真实数据并输出数据报告，其他 SKILL 需要数据时应用本 SKILL。
+数据层 SKILL：统一拉取 A 股真实数据并输出数据报告，其他 SKILL 需要数据时应用本 SKILL。
 
 ## 数据能力
 

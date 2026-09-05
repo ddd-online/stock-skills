@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""A股/ETF 真实行情数据报告（腾讯公开接口，无需密钥）。
+"""A股 真实行情数据报告（腾讯公开接口，无需密钥）。
 
 用法:
     python fetch_quote.py <代码> [--days N] [--json]
@@ -8,7 +8,6 @@
 代码: 沪市 sh + 6位数字，深市 sz + 6位数字，如:
     sh600410  华胜天成
     sz002491  通鼎互联
-    sh510300  沪深300ETF
 
 输出: 行情报告——实时报价 + 最近N根日K + MA5/10/20/60；不产生缓存文件。
 """
@@ -155,12 +154,12 @@ def print_text(code, payload):
             b["date"], fmt_num(b["open"]), fmt_num(b["close"]),
             fmt_num(b["high"]), fmt_num(b["low"]), fmt_int(b["volume"])))
     print("=" * 66)
-    print("注：数据来源为腾讯行情公开接口；ETF 的 PE/PB 通常不适用。")
+    print("注：数据来源为腾讯行情公开接口。")
 
 
 def main():
-    ap = argparse.ArgumentParser(description="A股/ETF 真实行情报告")
-    ap.add_argument("code", help="如 sh600410 / sz002491 / sh510300")
+    ap = argparse.ArgumentParser(description="A股 真实行情报告")
+    ap.add_argument("code", help="如 sh600410 / sz002491")
     ap.add_argument("--days", type=int, default=60, help="日K根数，默认60")
     ap.add_argument("--json", action="store_true", help="输出JSON")
     args = ap.parse_args()
