@@ -1,4 +1,6 @@
-# 交易规则清单模板
+# 六格清单分析模板（不落盘）
+
+stock-analysis 在建仓/加仓信号输出时用本模板完成六格清单分析，作为交接内容交给 $position-management，由其汇总进 stocks/<股票名称-股票代码>/STOCK-REVIEW.md「交易计划」；工作区不再生成 TRADE-RULES.md，本模板不写入任何文件。
 
 ## 六格清单（数字按用户确认值替换）
 

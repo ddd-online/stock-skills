@@ -1,4 +1,4 @@
 interface:
   display_name: "持仓管理（建仓/加仓/清仓）"
-  short_description: "管理持仓完整生命周期：建仓执行、加仓决策、清仓执行与平仓总结，全部按规则执行"
-  default_prompt: "使用 $position-management 帮我建仓通鼎互联（买入计划19.00、止损18.00）"
+  short_description: "管理持仓完整生命周期与资金调度：建仓执行（创建 STOCK-REVIEW.md 写入交易计划）、加仓决策、清仓执行与平仓总结，全部按规则执行"
+  default_prompt: "使用 $position-management 建仓通鼎互联（未收到 stock-analysis 支撑压力分析时先调用它）"

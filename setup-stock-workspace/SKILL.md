@@ -1,6 +1,6 @@
 ---
 name: setup-stock-workspace
-description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、history/YYYY-MM-DD/；stocks/股票名称-股票代码/ 下的 STOCK-REVIEW.md、TRADE-RULES.md、TRADE-SUMMARY.md 分别由 stock-review、stock-analysis、position-management 首次生成时创建），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%、当前档位；实际可用资产=本金+总盈亏−累计支取）写入 ACCOUNT.md，收集复盘/通知邮件收件人写入 AGENTS.md，填入种子模板，并把目录与文件规则、SKILL 版本与升级约束、条件单规则与状态更新规则写入 AGENTS.md（SKILL 版本记录初始化时按确认结果填写，升级后按该节约束同步），让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
+description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、WATCHLIST.md、TRADE-STATS.md、history/YYYY-MM-DD/；stocks/股票名称-股票代码/ 下的 STOCK-REVIEW.md、TRADE-SUMMARY.md 由 position-management 建仓时创建，STOCK-REVIEW.md 写入交易计划；六格清单分析由 stock-analysis 输出、不落盘），收集交易费用设置（佣金费率、最低佣金、印花税、过户费）与资金规则（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%、当前档位；实际可用资产=本金+总盈亏−累计支取）写入 ACCOUNT.md，收集复盘/通知邮件收件人写入 AGENTS.md，填入种子模板，并把目录与文件规则、SKILL 版本与升级约束、条件单规则与状态更新规则写入 AGENTS.md（SKILL 版本记录初始化时按确认结果填写，升级后按该节约束同步），让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；WATCHLIST.md 是观察池（标的/触发条件/预案/状态）；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
 ---
 
 # Setup Stock Workspace
@@ -56,8 +56,8 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 
 规则：
 
-- 首次实盘交易某只股票时，创建 stocks/<股票名称-股票代码>/（如 华胜天成-600410）+ history/ 目录；STOCK-REVIEW.md 由 stock-review、TRADE-RULES.md 由 stock-analysis、TRADE-SUMMARY.md 由 position-management 首次生成时创建
-- 清仓时：创建 history/YYYY-MM-DD/，把 STOCK-REVIEW.md / TRADE-RULES.md / TRADE-SUMMARY.md **移动**到该目录（归档=移动，工作区不留副本）；下次交易该股时由 stock-review / stock-analysis / position-management 分别重新生成
+- 首次实盘交易某只股票时，创建 stocks/<股票名称-股票代码>/（如 华胜天成-600410）+ history/ 目录；STOCK-REVIEW.md 与 TRADE-SUMMARY.md 由 position-management 建仓时创建（STOCK-REVIEW.md 写入交易计划，stock-analysis 的六格清单分析交接后不落盘；工作区没有 TRADE-RULES.md）
+- 清仓时：创建 history/YYYY-MM-DD/，把 STOCK-REVIEW.md / TRADE-SUMMARY.md **移动**到该目录（归档=移动，工作区不留副本）；下次建仓该股时这两个文件由 position-management 重新创建
 - 已存在的文件不覆盖；空文件用种子模板填充；全部 UTF-8 编码
 - 按确认结果填写 ACCOUNT.md 的交易费用设置与资金规则（账户口径见第 2 步）；缺失或未确认的项用默认值并标注“默认值，待确认”
 - report/ 为复盘报告输出目录（初始为空）：AGENTS.md 未配置邮箱时，stock-report 将复盘邮件正文以 md 文件保存到此处
@@ -79,10 +79,9 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 - TRADE-STATS.md：交易统计表（每笔清仓填一行；每 5-10 笔结算胜率/平均盈亏/期望值/最大回撤，用统计判断系统是否有效），由 position-management 更新
 - report/：复盘报告输出目录（AGENTS.md 未配置邮箱时，复盘邮件正文以 md 文件保存到此处），由 stock-report 写入
 - stocks/<股票名称-股票代码>/：每只股票一个文件夹（名称-代码，如 华胜天成-600410；名称以 POSITION.md / $market-data 为准，不编造）
-  - STOCK-REVIEW.md：个股每日检查（stock-review 首次检查时按自己的模板创建并写入）
-  - TRADE-RULES.md：个股交易规则（stock-analysis 生成，交易期间严格遵守）
+  - STOCK-REVIEW.md：个股交易计划 + 每日检查记录（position-management 建仓时创建并写入交易计划；持仓期间 stock-review 追加每日检查行；stock-analysis 六格清单分析交接后不落盘）
   - TRADE-SUMMARY.md：个股交易记录与总结（position-management 按自己的模板创建：建仓/加仓/减仓/清仓逐笔追加交易记录，清仓时补写本次盈亏与总结）
-  - history/YYYY-MM-DD/：清仓后将上述三个文件**移动**到该日期目录归档（工作区不留副本，下次交易重新生成）
+  - history/YYYY-MM-DD/：清仓后将上述两个文件**移动**到该日期目录归档（工作区不留副本；下次建仓时由 position-management 重新创建）
 
 stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其「股票名称-股票代码」文件夹。
 
@@ -98,7 +97,7 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其「
 
 ### 交易生命周期
 
-分析（stock-analysis，含生成交易规则）→ 建仓（position-management，更新 POSITION.md）→ 每日检查（stock-review，触发时给出平仓结论）→ 用户清仓 → 平仓总结（position-management 按卖出价结算，写 TRADE-SUMMARY.md → 更新 TRADE-STATS.md 四指标 → 归档 history/日期/）→ 复盘结论沉淀到 NOTES.md
+分析（stock-analysis，含六格清单分析，不落盘）→ 建仓（position-management，资金调度 + 创建 STOCK-REVIEW.md 写入交易计划 + 更新 POSITION.md）→ 每日检查（stock-review，追加检查行，触发时给出平仓结论）→ 用户清仓 → 平仓总结（position-management 按卖出价结算，平仓复盘只写 TRADE-SUMMARY.md → 更新 TRADE-STATS.md 四指标 → 归档 history/日期/）→ 复盘结论沉淀到 NOTES.md
 
 ### 条件单规则
 
@@ -144,4 +143,4 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其「
 ## 资产（种子模板）
 
 - assets/ACCOUNT.md、assets/NOTES.md、assets/POSITION.md、assets/MUST.md、assets/WATCHLIST.md、assets/TRADE-STATS.md — 根级种子模板
-- 个股文件模板（STOCK-REVIEW.md / TRADE-RULES.md / TRADE-SUMMARY.md）分别由 stock-review / stock-analysis / position-management 持有，本 SKILL 不提供个股种子
+- 个股文件模板：STOCK-REVIEW.md / TRADE-SUMMARY.md 由 position-management 持有（建仓时创建）；本 SKILL 不提供个股种子（stock-analysis 六格清单分析交接后不落盘）
