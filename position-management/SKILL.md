@@ -35,15 +35,15 @@ description: 管理持仓的完整生命周期与全部资金调度：建仓（�
 - 计算：
   - 一手金额 = 价格 × 100；按100股整数倍申报
   - 验证：最大亏损 =（买入价 − 止损价）× 股数 + 费用 ≤ 单笔亏损预算
-  - 费用按 ACCOUNT.md 交易费用设置计算（佣金费率与最低佣金；印花税卖出 0.05%、过户费 0.01‰）
+  - 费用按 ACCOUNT.md 交易费用设置计算
 - 下单前检查（缺一条不做）：买点条件成立？止损/止盈/时间止损已写？亏损在预算内？T+1 已考虑？费用已计入？
 - 禁止：条件不满足就下单、全仓、无止损下单。
-- 建仓执行后：创建 stocks/<股票名称-股票代码>/STOCK-REVIEW.md（不存在时按本 SKILL 的 assets/STOCK-REVIEW.md 模板）并写入「交易计划」节（规则见下方「STOCK-REVIEW.md 文件维护」）；更新 POSITION.md——总览表新增该股一行，并按 POSITION.md 的结构约定（setup-stock-workspace assets/POSITION.md）创建 `### <股票名> <代码>` 持仓明细小节（买入日期/买入成本/现价浮动盈亏/止损/止盈/时间止损/买入理由/备注）；同时更新 ACCOUNT.md（资金变化记录追加一行 + 按「账户口径」重算总盈亏/实际可用资产/红线/预算）；TRADE-SUMMARY.md 不存在时按本 SKILL 的 assets/TRADE-SUMMARY.md 模板创建，并在交易记录表追加一行（方向=买入）；若该股仍在 WATCHLIST.md 观察池中，同步移出——删除观察池清单中该股行与其条件单参数，并在“移除记录”注明“已建仓”，持仓期间不再为该股挂观察池条件单（日常检查走 stock-review）。
-- 模板见 references/entry-checklist.md 与 references/batch-position-card.md。
+- 建仓执行后：创建 stocks/<股票名称-股票代码>/STOCK-REVIEW.md（不存在时按本 SKILL 的 assets/STOCK-REVIEW.md 模板）并写入「交易计划」节（规则见下方「STOCK-REVIEW.md 文件维护」）；更新 POSITION.md——总览表新增该股一行，并按 POSITION.md 的结构约定创建 `### <股票名> <代码>` 持仓明细小节（买入日期/买入成本/现价浮动盈亏/止损/止盈/时间止损/买入理由/备注）；同时更新 ACCOUNT.md（资金变化记录追加一行 + 按「账户口径」重算总盈亏/实际可用资产/红线/预算）；TRADE-SUMMARY.md 不存在时按本 SKILL 的 assets/TRADE-SUMMARY.md 模板创建，并在交易记录表追加一行（方向=买入）；若该股仍在 WATCHLIST.md 观察池中，同步移出——删除观察池清单中该股行与其条件单参数，并在“移除记录”注明“已建仓”，持仓期间不再为该股挂观察池条件单（日常检查走 stock-review）。
+- 建仓计划卡即 STOCK-REVIEW.md「交易计划」节（模板见 assets/STOCK-REVIEW.md，填写规则见「STOCK-REVIEW.md 文件维护」）；分批建仓/止盈模板见 references/batch-position-card.md。
 
 ## STOCK-REVIEW.md 文件维护
 
-- 归属：STOCK-REVIEW.md = 交易计划 + 持仓期间每日检查记录，是该股唯一落盘的交易计划文件（工作区不再有 TRADE-RULES.md；平仓复盘不写本文件，只写 TRADE-SUMMARY.md）。交易计划含资金调度结果（买入价×手数、总成本含佣金、最大亏损金额与本金%、盈亏比），只能由本 SKILL 在建仓执行时创建并写入；stock-review 只在该文件「每日检查」表追加行，不创建文件、不改写交易计划。
+- 归属：STOCK-REVIEW.md = 交易计划 + 持仓期间每日检查记录，是该股唯一落盘的交易计划文件（平仓复盘不写本文件，只写 TRADE-SUMMARY.md）。交易计划含资金调度结果（买入价×手数、总成本含佣金、最大亏损金额与本金%、盈亏比），只能由本 SKILL 在建仓执行时创建并写入；stock-review 只在该文件「每日检查」表追加行，不创建文件、不改写交易计划。
 - 填写：按建仓资金调度与费用计算结果填模板「交易计划」节（股票/代码、买入日期、买入价×手数、总成本含佣金、买入理由、止损、止盈、时间止损、最大亏损、盈亏比）；stock-analysis 的六格清单分析（选什么/何时买/买多少/错了怎么办/对了怎么办/交易后）在建仓前完成并交接给本 SKILL 汇总，不单独落盘。盈亏比 = (止盈价 − 买入价) ÷ (买入价 − 止损价)；最大亏损 = (买入价 − 止损价) × 股数 + 费用，占本金% 以 ACCOUNT.md 实际可用资产（缺失时按本金并标注）为基数。
 - 加仓/减仓后：最新成本与止损止盈只更新 POSITION.md 持仓明细，并在 TRADE-SUMMARY.md 追加交易记录，不回写初始交易计划；持仓检查以 POSITION.md 为准。
 - 归档：清仓后与 TRADE-SUMMARY.md 一起移入 history/YYYY-MM-DD/（见「平仓复盘与总结」第 7 步）；下次建仓该股时重新创建。
@@ -119,15 +119,13 @@ description: 管理持仓的完整生命周期与全部资金调度：建仓（�
 - 降档执行：触发 ACCOUNT.md「资金规则」的降档条件时立即降档，不因“想回本”破例放大仓位。
 - 减仓/空仓不犹豫：破位减仓、止损离场不商量。
 - 仓位处理集中：所有资金调度与仓位计算（现金储备、单笔预算、批次、手数、费用）由本 SKILL 负责；stock-analysis 只提供信号、锚点与建议。
-- 交易计划归属：STOCK-REVIEW.md 与其「交易计划」节由本 SKILL 建仓时创建/写入（涉及资金调度；工作区不再有 TRADE-RULES.md），stock-review 只追加每日检查行；四层复盘内容只写 TRADE-SUMMARY.md，不写 STOCK-REVIEW.md。
+- 交易计划归属：STOCK-REVIEW.md 与其「交易计划」节由本 SKILL 建仓时创建/写入，stock-review 只追加每日检查行；四层复盘内容只写 TRADE-SUMMARY.md，不写 STOCK-REVIEW.md。
 - 不替用户做决定：输出客观条件和计算，是否执行由用户决定。
 
 ## 参考资料
 
-- references/entry-checklist.md — 建仓计划卡与下单前检查（建仓时读）
 - references/batch-position-card.md — 分批建仓/止盈仓位卡（建仓/加仓时读）
 - references/exit-summary-template.md — 清仓执行、盈亏计算与四层复盘模板（清仓/总结时读）
-- references/trade-stats.md — 四指标统计（胜率/平均盈亏/期望值/最大回撤）与结算时机（清仓结算时读）
 - references/fund-allocation-card.md — 资金调度卡模板（四动作触发条件与金额上限；每个动作前读）
 - assets/TRADE-SUMMARY.md — TRADE-SUMMARY.md 种子模板（建仓时创建，逐笔追加交易记录）
 - assets/STOCK-REVIEW.md — STOCK-REVIEW.md 种子模板（建仓执行时创建并写入交易计划；持仓期间 stock-review 追加每日检查行）
