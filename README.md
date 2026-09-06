@@ -10,7 +10,7 @@
 |---|---|
 | [market-data](market-data/) | 数据层：统一拉取 A 股真实行情、财报、新闻公告、资金流向与强势股榜单并输出数据报告，供其他 skill 调用 |
 | [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；建仓/加仓信号输出六格清单分析（不落盘，交接给 position-management 汇总进 STOCK-REVIEW.md 交易计划）；资金调度由 position-management 确认 |
-| [buying-at-close](buying-at-close/) | 尾盘买入审视：14:30 后拉取大盘与强势股榜（默认换手 5%–30%）快筛候选，盘口初审后逐只经 $stock-analysis 全面分析（建仓信号为买入前提），再按 MUST「尾盘买入法执行规则」输出「买入/不买」报告；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
+| [buying-at-close](buying-at-close/) | 尾盘买入审视：14:30 后拉取大盘与强势股榜（默认换手 5%–30%）快筛候选，盘口初审后逐只经 $stock-analysis 全面分析（建仓信号为买入前提），再按 MUST「尾盘买入法执行规则」输出「买入/不买」报告并写入 report/尾盘买入审视-YYYY-MM-DD.md；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
 | [watchlist-review](watchlist-review/) | 审视观察池：逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查：按收盘复盘规范输出该股第 3–5 步（个股触发判断/量价四句/明日预案行），结果与明日预案追加 STOCK-REVIEW.md，供 stock-report 收盘版汇总（档案与交易计划由 position-management 建仓时创建/写入） |
 | [stock-report](stock-report/) | 每日复盘（午间 11:45 精简版 / 收盘 15:15 完整版）：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 观察池审视（$watchlist-review）+ 生成复盘报告写入 report/，配置邮箱时经 agently-mail 同步发送 |
