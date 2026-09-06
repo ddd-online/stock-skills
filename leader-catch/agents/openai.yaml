@@ -1,0 +1,4 @@
+interface:
+  display_name: "龙头股专题扫描（leader-catch）"
+  short_description: "扫描市场活跃板块或指定板块/题材的行业龙头与人气龙头，四查两两打分后输出龙头扫描报告（最强与值得买分开）"
+  default_prompt: "使用 $leader-catch 扫描当前市场活跃板块的行业龙头与人气龙头，把‘最强’和‘值得买’分开输出报告"

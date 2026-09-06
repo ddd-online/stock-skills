@@ -85,6 +85,7 @@ def build_payload(code, size):
             "net_margin_pct": to_float(r.get("XSJLL")),
             "debt_ratio_pct": to_float(r.get("ZCFZL")),
             "roe_pct": to_float(r.get("ROEJQ")),
+            "net_cash_operate_yi": round((to_float(r.get("NETCASH_OPERATE_PK")) or 0) / 1e8, 2),
             "eps": to_float(r.get("EPSJB")),
         })
     return out
@@ -94,12 +95,12 @@ def print_text(code, rows):
     print("=" * 92)
     print("财报核心指标（来源：东方财富数据中心）")
     print("=" * 92)
-    print("{:<14}{:>10}{:>9}{:>11}{:>9}{:>9}{:>9}{:>9}{:>9}".format(
+    print("{:<14}{:>10}{:>9}{:>11}{:>9}{:>9}{:>9}{:>9}{:>9}{:>13}".format(
         "报告期", "营收(亿)", "营收同比%", "净利(亿)", "净利同比%",
-        "毛利率%", "净利率%", "负债率%", "ROE%"))
+        "毛利率%", "净利率%", "负债率%", "ROE%", "经营现金流(亿)"))
     print("-" * 92)
     for r in rows:
-        print("{:<14}{:>10}{:>9}{:>11}{:>9}{:>9}{:>9}{:>9}{:>9}".format(
+        print("{:<14}{:>10}{:>9}{:>11}{:>9}{:>9}{:>9}{:>9}{:>9}{:>13}".format(
             str(r.get("report") or "-")[:14],
             fmt_num(r.get("revenue_yi")),
             fmt_num(r.get("revenue_yoy_pct")),
@@ -109,6 +110,7 @@ def print_text(code, rows):
             fmt_num(r.get("net_margin_pct")),
             fmt_num(r.get("debt_ratio_pct")),
             fmt_num(r.get("roe_pct")),
+            fmt_num(r.get("net_cash_operate_yi")),
         ))
     print("=" * 92)
     print("口径：数值为报告期累计；同比须与去年同期比（一季报比一季报，年报比年报）。")
