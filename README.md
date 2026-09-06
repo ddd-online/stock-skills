@@ -10,7 +10,7 @@
 |---|---|
 | [market-data](market-data/) | 数据层：统一拉取 A 股真实行情、财报、新闻公告、资金流向与强势股榜单并输出数据报告，供其他 skill 调用 |
 | [stock-analysis](stock-analysis/) | 结合工作区账户/持仓/笔记，全面分析一只 A 股并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；建仓/加仓信号输出六格清单分析（不落盘，交接给 position-management 汇总进 STOCK-REVIEW.md 交易计划）；资金调度由 position-management 确认 |
-| [buying-at-close](buying-at-close/) | 尾盘买入审视：14:30 后拉取大盘与强势股榜（默认换手 5%–30%），逐只过六问过滤并对照 MUST「尾盘买入法执行规则」输出「买入/不买」报告；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
+| [buying-at-close](buying-at-close/) | 尾盘买入审视：14:30 后拉取大盘与强势股榜（默认换手 5%–30%）快筛候选，盘口初审后逐只经 $stock-analysis 全面分析（建仓信号为买入前提），再按 MUST「尾盘买入法执行规则」输出「买入/不买」报告；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
 | [watchlist-review](watchlist-review/) | 审视观察池：逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查：按收盘复盘规范输出该股第 3–5 步（个股触发判断/量价四句/明日预案行），结果与明日预案追加 STOCK-REVIEW.md，供 stock-report 收盘版汇总（档案与交易计划由 position-management 建仓时创建/写入） |
 | [stock-report](stock-report/) | 每日复盘（午间 11:45 精简版 / 收盘 15:15 完整版）：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 观察池审视（$watchlist-review）+ 生成复盘报告写入 report/，配置邮箱时经 agently-mail 同步发送 |
@@ -19,20 +19,10 @@
 
 ## 安装（Codex）
 
-每个 skill 是一个独立文件夹，用 Codex 的 skill-installer 从本仓库安装（需网络，公开仓库默认直连下载）：
+在 Codex 中粘贴下面的提示词，Codex 会用 $skill-installer 从本仓库下载并安装全部 skill（需网络，公开仓库默认直连下载）：
 
-```bash
-python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo ddd-online/stock-skills \
-  --path market-data stock-analysis buying-at-close watchlist-review \
-         stock-review stock-report position-management setup-stock-workspace
 ```
-
-逐个安装示例：
-
-```bash
-python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo ddd-online/stock-skills --path stock-analysis
+使用 $skill-installer 从 GitHub 仓库 ddd-online/stock-skills 安装以下 skills：market-data、stock-analysis、buying-at-close、watchlist-review、stock-review、stock-report、position-management、setup-stock-workspace
 ```
 
 安装位置：`$CODEX_HOME/skills/<skill-name>`（默认 `~/.codex/skills`）。安装后下一个会话即可用 `$skill-name` 调用（如 `使用 $stock-analysis 分析 sh600410 该建仓还是空仓`）。
@@ -64,6 +54,7 @@ stock-analysis 在输出「建仓/加仓」信号时完成六格清单分析（�
 - 资金调度（现金储备、单笔预算、批次、手数）全部由 position-management 确认；stock-analysis 只输出信号、锚点与建议
 - STOCK-REVIEW.md 与其交易计划由 position-management 建仓时创建/写入（涉及资金调度）；stock-review 只追加每日检查行
 - watchlist-review 审视观察池时逐个自动调用 stock-analysis；观察池进出由 stock-analysis 信号决定（观察→进池等待、空仓信号→移除）
+- buying-at-close 快筛出的候选须逐只经 $stock-analysis 输出「建仓信号」后才允许给「买入」结论；尾盘时间/仓位/次日纪律以 MUST「尾盘买入法执行规则」为准
 - stock-review 只检查 POSITION.md 中的持仓；触发止损/止盈/时间止损时只给出平仓结论，不强制下单（可能不在交易时段）
 - stock-report 每日复盘汇总两条审视线：收盘版按 大盘→板块→个股→量价→预案 组装 $stock-review（已持仓审视）与 $watchlist-review（观察池审视）的输出；复盘报告先写入 report/，有邮箱时经 $agently-mail 同步发送
 - 用户卖出后调用 position-management 告知卖出价，由它按实际成交价结算并完成平仓总结与归档
