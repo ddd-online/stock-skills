@@ -56,7 +56,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 
 规则：
 
-- 首次实盘交易某只股票时，创建 stocks/<股票名称-股票代码>/（如 华胜天成-600410）+ history/ 目录；STOCK-REVIEW.md 与 TRADE-SUMMARY.md 由 position-management 建仓时创建（STOCK-REVIEW.md 写入交易计划，stock-analysis 的六格清单分析交接后不落盘；工作区没有 TRADE-RULES.md）
+- 首次实盘交易某只股票时，创建 stocks/<股票名称-股票代码>/（如 华胜天成-600410）+ history/ 目录；STOCK-REVIEW.md 与 TRADE-SUMMARY.md 由 position-management 建仓时创建
 - 清仓时：创建 history/YYYY-MM-DD/，把 STOCK-REVIEW.md / TRADE-SUMMARY.md **移动**到该目录（归档=移动，工作区不留副本）；下次建仓该股时这两个文件由 position-management 重新创建
 - 已存在的文件不覆盖；空文件用种子模板填充；全部 UTF-8 编码
 - 按确认结果填写 ACCOUNT.md 的交易费用设置与资金规则（账户口径见第 2 步）；缺失或未确认的项用默认值并标注“默认值，待确认”
@@ -99,14 +99,6 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其「
 
 分析（stock-analysis，含六格清单分析，不落盘）→ 建仓（position-management，资金调度 + 创建 STOCK-REVIEW.md 写入交易计划 + 更新 POSITION.md）→ 每日检查（stock-review，追加检查行，触发时给出平仓结论）→ 用户清仓 → 平仓总结（position-management 按卖出价结算，平仓复盘只写 TRADE-SUMMARY.md → 更新 TRADE-STATS.md 四指标 → 归档 history/日期/）→ 复盘结论沉淀到 NOTES.md
 
-### 条件单规则
-
-- 观察池标的与建仓信号必须给出条件单参数：类型（回踩买/突破买）/ 触发价 / 委托限价 / 止损 / 止盈 / 手数上限 / 撤销条件（依据 stock-analysis references/conditional-order.md）
-- 手数上限 = floor(单笔预算 ÷ ((委托限价−止损)×100))；一手风险超预算不设条件单，写明原因
-- 条件单只验证价格：触发后按复核清单人工确认（放量 / 换手≥3% / 主力净流入 / 收阳站稳 / 低开>3% 放弃），不达标当日放弃
-- 条件单当日有效：早盘按最新收盘价复核触发价，收盘未触发次日重挂；触发买入后即挂止损/止盈
-- 每日午间/收盘复盘必须报告条件单状态：触发 / 未触发 / 撤销 / 已执行
-
 ### 状态更新规则
 
 - 当前状态类内容（资金规则、持仓、观察池状态、条件单参数、MUST 阈值）直接改为最新值，不添加日期/版本括号注释，不留历史记录
@@ -126,9 +118,6 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其「
 - 止损无条件执行；跳空破位/暴跌日不等收盘；接受滑点
 - 费用计算以 ACCOUNT.md 交易费用设置为准（佣金费率、最低佣金、印花税、过户费）
 - 所有 SKILL 必须遵守 MUST.md 中的个人交易风格与规则
-- 没有触发条件不建仓；观察池标的必须三要素齐全（标的、触发条件、预案）
-- 每笔真实交易必须归档：POSITION.md → TRADE-SUMMARY.md → history
-- 每 5-10 笔结算一次四指标（胜率、平均盈亏、期望值、最大回撤），一次只改一条规则
 - 写markdown文档时不使用任何emoji符号
 ```
 
@@ -143,4 +132,4 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其「
 ## 资产（种子模板）
 
 - assets/ACCOUNT.md、assets/NOTES.md、assets/POSITION.md、assets/MUST.md、assets/WATCHLIST.md、assets/TRADE-STATS.md — 根级种子模板
-- 个股文件模板：STOCK-REVIEW.md / TRADE-SUMMARY.md 由 position-management 持有（建仓时创建）；本 SKILL 不提供个股种子（stock-analysis 六格清单分析交接后不落盘）
+- 个股文件模板：STOCK-REVIEW.md / TRADE-SUMMARY.md 由 position-management 持有（建仓时创建）
