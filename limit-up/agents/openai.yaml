@@ -1,0 +1,4 @@
+interface:
+  display_name: "涨停板复盘（limit-up）"
+  short_description: "分析涨停/跌停/炸板家数、连板高度与最高板、昨日涨停晋级表现，并把当日主线板块与板块行合并输出报告"
+  default_prompt: "使用 $limit-up 复盘今日涨停板：涨停跌停家数、最高几板、昨日涨停晋级率与炸板潮、当日主线板块"
