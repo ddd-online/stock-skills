@@ -13,7 +13,7 @@
 | [buying-at-close](buying-at-close/) | 尾盘执行入口 | 14:30 后拉取大盘与强势股榜（默认换手 5%–30%）快筛候选，盘口初审后逐只经 $stock-analysis 全面分析（建仓信号为买入前提），按 MUST「尾盘买入法执行规则」输出「买入/不买」报告并写入 report/尾盘买入审视-YYYY-MM-DD.md；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
 | [leader-catch](leader-catch/) | 龙头扫描入口 | 识别市场活跃板块或指定板块/题材里的行业龙头（基本面第一梯队）与人气龙头（板块相对最强，四查两两打分），报告把「最强」与「值得买」分开标注，写入 report/龙头扫描-YYYY-MM-DD.md；只出扫描结论不下单，深查交接 $stock-analysis，仓位与观察池分别走 $position-management / $watchlist-review |
 | [limit-up](limit-up/) | 涨停情绪复盘 | 复盘涨停/跌停/炸板家数与封板率、连板高度与最高板（一字核对）、昨日涨停今日晋级表现与炸板潮，并把当日主线板块与板块行情榜（板块行）合并写入 report/涨停板复盘-YYYY-MM-DD.md；只出数据判定，不下单不预测 |
-| [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $limit-up 挖掘强势板块，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（高点回落后缩量企稳）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配后写入 report/蓄力票扫描-YYYY-MM-DD.md；只做发现筛选，不输出买卖信号 |
+| [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $leader-catch 做强势板块分析，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（高点回落后缩量企稳）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配后写入 report/蓄力票扫描-YYYY-MM-DD.md；只做发现筛选，不输出买卖信号 |
 | [watchlist-review](watchlist-review/) | 观察池审视 | 逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查 | 按收盘复盘规范输出该股第 3–5 步（个股触发判断/量价四句/明日预案行），结果与明日预案追加 STOCK-REVIEW.md，供 stock-report 收盘版汇总 |
 | [stock-report](stock-report/) | 每日复盘 | 午间 11:45 精简版 / 收盘 15:15 完整版：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 观察池审视（$watchlist-review）+ 生成复盘报告写入 report/，配置邮箱时经 agently-mail 同步发送 |
@@ -33,7 +33,7 @@
 ```
 使用 $leader-catch 扫描今天市场最活跃板块的行业龙头与人气龙头，把「最强」和「值得买」分开
 使用 $limit-up 复盘今日涨停板：涨停跌停家数、最高几板、晋级率与炸板潮、当日主线板块
-使用 $find-simmer 在今日强势板块里找蓄力票（先执行 $limit-up）
+使用 $find-simmer 在今日强势板块里找蓄力票（先执行 $leader-catch）
 使用 $stock-analysis 分析 sh600410 该建仓还是空仓
 使用 $buying-at-close 做今天 14:45 的尾盘买入审视
 使用 $stock-report 做今天的收盘复盘
@@ -59,7 +59,7 @@ leader-catch 是可选的“龙头扫描”入口（不属于每日闭环）：�
 
 limit-up 是可选的“涨停板情绪复盘”入口（不属于每日闭环）：用涨停/跌停/炸板家数、连板高度、晋级率与炸板率描述当日情绪与主线；报告写入 report/涨停板复盘-YYYY-MM-DD.md，只做数据复盘，买卖判断仍走 stock-analysis → position-management。
 
-find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）：必须先执行 limit-up 得到强势板块，再在板块内筛 A/B 型蓄力票并写 report/蓄力票扫描-YYYY-MM-DD.md；发现结果只作候选，是否值得买仍走 stock-analysis → position-management。
+find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）：必须先执行 leader-catch 做强势板块分析，再在板块内筛 A/B 型蓄力票并写 report/蓄力票扫描-YYYY-MM-DD.md；发现结果只作候选，是否值得买仍走 stock-analysis → position-management。
 
 每笔清仓后 position-management 把交易记录写入根目录 TRADE-STATS.md，每 5-10 笔结算胜率、平均盈亏、期望值、最大回撤，用统计判断系统是否有效、下一步该改哪一端（入场端/出场端），一次只改一条规则。
 
