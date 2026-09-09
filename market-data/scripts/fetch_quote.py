@@ -123,7 +123,7 @@ def build_payload(code, days):
     mas = {n: compute_ma(closes, n) for n in (5, 10, 20, 60)}
     return {
         "quote": quote,
-        "kline": kline[-30:],
+        "kline": kline,
         "ma": mas,
         "note": "数据来源：腾讯行情公开接口",
     }
@@ -154,7 +154,7 @@ def print_text(code, payload):
             b["date"], fmt_num(b["open"]), fmt_num(b["close"]),
             fmt_num(b["high"]), fmt_num(b["low"]), fmt_int(b["volume"])))
     print("=" * 66)
-    print("注：数据来源为腾讯行情公开接口。")
+    print("注：数据来源为腾讯行情公开接口；文本仅展示最近15根，JSON 输出完整 N 根日K供计算。")
 
 
 def main():
