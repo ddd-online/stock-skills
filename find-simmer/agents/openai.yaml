@@ -1,0 +1,4 @@
+interface:
+  display_name: "蓄力票扫描（find-simmer）"
+  short_description: "先经 limit-up 锁定强势板块，再在板块内发现缓慢上涨、回踩蓄力或抗跌慢涨的股票并输出报告"
+  default_prompt: "使用 $find-simmer 找强势板块里的蓄力票：先执行 $limit-up 挖出当日主线板块，再筛1周到1个月内缓慢上涨、回踩蓄力或抗跌的股票"
