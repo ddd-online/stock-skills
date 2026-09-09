@@ -66,8 +66,8 @@ find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）�
 空仓期/等待期：$watchlist-review 审视观察池——逐只调用 $stock-analysis，按信号更新 WATCHLIST.md 状态；没有触发条件不建仓。空仓期间 $stock-report 收盘复盘照常执行（只做大盘/板块 + 观察池），不产生个股预案。
 
 调用约束：
-- 前置：除 leader-catch（纯数据扫描，不读取工作区文件，可在任意目录运行）外，其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
-- 除 leader-catch 外，所有 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
+- 前置：除 leader-catch、limit-up（纯数据扫描/复盘，不读取工作区文件，可在任意目录运行）外，其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
+- 除 leader-catch、limit-up 外，所有 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
 - leader-catch 只识别龙头并给出「值得进一步评估」名单，不输出买卖结论；候选须经 $stock-analysis 输出建仓信号后才可走 $position-management
 - stock-analysis 输出建仓/加仓信号（含六格清单分析）后，才调用 position-management；减仓/空仓信号直接调用 position-management；用户直接请求建仓而 position-management 未收到 stock-analysis 的支撑位/压力位（买点/止损/止盈）分析时，先调用 stock-analysis 获取后再做资金调度
 - 资金调度（现金储备、单笔预算、批次、手数）全部由 position-management 确认；stock-analysis 只输出信号、锚点与建议
