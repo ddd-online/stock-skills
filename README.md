@@ -2,7 +2,7 @@
 
 中文 A 股实盘交易辅助的 Codex skills 集合：核心闭环覆盖「个股分析 → 交易计划 → 建仓/持仓 → 清仓复盘 → 统计归档」，龙头扫描（leader-catch）与尾盘买入审视（buying-at-close）是两个可选决策入口。每个 skill 独立自包含（SKILL.md + references + scripts），真实数据统一由 market-data 拉取（腾讯行情 + 东方财富行情/板块/财报/新闻/资金流公开接口）并输出数据报告，无需密钥。
 
-当前版本：3.2.2 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
+当前版本：3.3.0 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
 
 ## Skills 一览
 
