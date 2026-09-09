@@ -347,13 +347,13 @@ def main():
     ap.add_argument("--sort", choices=sorted(SORTS), default="change",
                     help="排序字段（默认 change 当日涨跌幅）")
     ap.add_argument("--min-turnover", type=float, default=0,
-                    help="最低换手率过滤，如 5 表示 >5%（默认不过滤）")
+                    help="最低换手率过滤，如 5 表示 >5%%（默认不过滤）")
     ap.add_argument("--max-turnover", type=float, default=0,
-                    help="最高换手率过滤，如 10 表示 <10%（默认不过滤）")
+                    help="最高换手率过滤，如 10 表示 <10%%（默认不过滤）")
     ap.add_argument("--min-gain", type=float, default=0,
-                    help="最低当日涨幅过滤，如 3 表示 ≥3%（默认不过滤）")
+                    help="最低当日涨幅过滤，如 3 表示 ≥3%%（默认不过滤）")
     ap.add_argument("--max-gain", type=float, default=0,
-                    help="最高当日涨幅过滤，如 10 表示 ≤10%（默认不过滤）")
+                    help="最高当日涨幅过滤，如 10 表示 ≤10%%（默认不过滤）")
     ap.add_argument("--min-float-cap", type=float, default=0,
                     help="最低流通市值（亿）过滤，如 50（默认不过滤）")
     ap.add_argument("--max-float-cap", type=float, default=0,

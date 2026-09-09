@@ -274,13 +274,13 @@ def main():
     parser.add_argument("--board", choices=sorted(BOARDS), default="hs",
                         help="板块（默认 hs：沪深 A 股）")
     parser.add_argument("--min-turnover", type=float, default=0,
-                        help="最低换手率过滤，如 5 表示 >5%（默认不过滤）")
+                        help="最低换手率过滤，如 5 表示 >5%%（默认不过滤）")
     parser.add_argument("--max-turnover", type=float, default=0,
-                        help="最高换手率过滤，如 30 表示 <30%（默认不过滤）")
+                        help="最高换手率过滤，如 30 表示 <30%%（默认不过滤）")
     parser.add_argument("--min-gain", type=float, default=0,
-                        help="最低涨幅过滤，如 3 表示 ≥3%（默认不过滤）")
+                        help="最低涨幅过滤，如 3 表示 ≥3%%（默认不过滤）")
     parser.add_argument("--max-gain", type=float, default=0,
-                        help="最高涨幅过滤，如 5 表示 ≤5%（默认不过滤）")
+                        help="最高涨幅过滤，如 5 表示 ≤5%%（默认不过滤）")
     parser.add_argument("--include-st", action="store_true", help="不剔除名称含 ST 的股票")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     args = parser.parse_args()

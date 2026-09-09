@@ -449,6 +449,14 @@ def main():
     prev_zb_rows = [r for r in (normalize_pool_row(x) for x in prev_zb["pool"]) if r]
     prev_dt_rows = [r for r in (normalize_pool_row(x) for x in prev_dt["pool"]) if r]
 
+    zt_n = len(zt_rows)
+    zb_n = len(zb_rows)
+    dt_n = len(dt_rows)
+    prev_zt_n = len(prev_zt_rows)
+    prev_zb_n = len(prev_zb_rows)
+    prev_dt_n = len(prev_dt_rows)
+    prev_max_board = max((r["board_count"] or 1 for r in prev_zt_rows), default=None)
+
     board_rows = [r for r in zt_rows if (r["board_count"] or 1) >= 2]
     one_word_codes = sorted(set(r["code"] for r in board_rows[:15]))
     quotes = fetch_quotes(one_word_codes)
@@ -481,14 +489,14 @@ def main():
             "prev_date": prev_str,
             "quote_date": quote_date,
             "overview": {
-                "zt_count": len(zt_rows),
-                "dt_count": len(dt_rows),
-                "zb_count": len(zb_rows),
-                "prev_zt_count": len(prev_zt_rows),
-                "prev_dt_count": len(prev_dt_rows),
-                "prev_zb_count": len(prev_zb_rows),
-                "seal_rate_pct": round(len(zt_rows) * 100.0 / (len(zt_rows) + len(zb_rows)), 1)
-                if len(zt_rows) + len(zb_rows) else None,
+                "zt_count": zt_n,
+                "dt_count": dt_n,
+                "zb_count": zb_n,
+                "prev_zt_count": prev_zt_n,
+                "prev_dt_count": prev_dt_n,
+                "prev_zb_count": prev_zb_n,
+                "seal_rate_pct": round(zt_n * 100.0 / (zt_n + zb_n), 1)
+                if zt_n + zb_n else None,
                 "prev_seal_rate_pct": round(prev_zt_n * 100.0 / (prev_zt_n + prev_zb_n), 1)
                 if prev_zt_n + prev_zb_n else None,
             },
