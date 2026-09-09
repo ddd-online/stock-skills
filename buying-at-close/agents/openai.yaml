@@ -1,4 +1,4 @@
 interface:
   display_name: "尾盘买入审视（强势股）"
-  short_description: "14:45 后拉取大盘强势股快筛候选，逐只经 $stock-analysis 分析后输出是否买入报告并写入 report/；买入给次日止损止盈规则"
+  short_description: "14:45 后拉取大盘强势股快筛候选，逐只经 $stock-analysis 分析后输出是否买入报告并写入 report/尾盘买入审视/；买入给次日止损止盈规则"
   default_prompt: "使用 $buying-at-close 做今日尾盘买入审视（现在 14:50）"

@@ -10,13 +10,13 @@
 |---|---|---|
 | [market-data](market-data/) | 数据层 | 统一拉取 A 股真实行情、财报、新闻公告、资金流向、强势股榜单、板块行情榜/成分股榜/板块财务排名、涨停板数据并输出数据报告，供其他 skill 调用 |
 | [stock-analysis](stock-analysis/) | 个股分析与信号 | 结合工作区账户/持仓/笔记，全面分析一只 A 股并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；建仓/加仓信号输出六格清单分析（不落盘，交接给 position-management 汇总进 STOCK-REVIEW.md 交易计划） |
-| [buying-at-close](buying-at-close/) | 尾盘执行入口 | 14:30 后拉取大盘与强势股榜（默认换手 5%–30%）快筛候选，盘口初审后逐只经 $stock-analysis 全面分析（建仓信号为买入前提），按 MUST「尾盘买入法执行规则」输出「买入/不买」报告并写入 report/尾盘买入审视-YYYY-MM-DD.md；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
-| [leader-catch](leader-catch/) | 龙头扫描入口 | 识别市场活跃板块或指定板块/题材里的行业龙头（基本面第一梯队）与人气龙头（板块相对最强，四查两两打分），报告把「最强」与「值得买」分开标注，写入 report/龙头扫描-YYYY-MM-DD.md；只出扫描结论不下单，深查交接 $stock-analysis，仓位与观察池分别走 $position-management / $watchlist-review |
-| [limit-up](limit-up/) | 涨停情绪复盘 | 复盘涨停/跌停/炸板家数与封板率、连板高度与最高板（一字核对）、昨日涨停今日晋级表现与炸板潮，并把当日主线板块与板块行情榜（板块行）合并写入 report/涨停板复盘-YYYY-MM-DD.md；只出数据判定，不下单不预测 |
-| [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $leader-catch 做强势板块分析，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（高点回落后缩量企稳）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配后写入 report/蓄力票扫描-YYYY-MM-DD.md；只做发现筛选，不输出买卖信号 |
+| [buying-at-close](buying-at-close/) | 尾盘执行入口 | 14:30 后拉取大盘与强势股榜（默认换手 5%–30%）快筛候选，盘口初审后逐只经 $stock-analysis 全面分析（建仓信号为买入前提），按 MUST「尾盘买入法执行规则」输出「买入/不买」报告并写入 report/尾盘买入审视/YYYY-MM-DD.md；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
+| [leader-catch](leader-catch/) | 龙头扫描入口 | 识别市场活跃板块或指定板块/题材里的行业龙头（基本面第一梯队）与人气龙头（板块相对最强，四查两两打分），报告把「最强」与「值得买」分开标注，写入 report/龙头扫描/YYYY-MM-DD.md；只出扫描结论不下单，深查交接 $stock-analysis，仓位与观察池分别走 $position-management / $watchlist-review |
+| [limit-up](limit-up/) | 涨停情绪复盘 | 复盘涨停/跌停/炸板家数与封板率、连板高度与最高板（一字核对）、昨日涨停今日晋级表现与炸板潮，并把当日主线板块与板块行情榜（板块行）合并写入 report/涨停板复盘/YYYY-MM-DD.md；只出数据判定，不下单不预测 |
+| [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $leader-catch 做强势板块分析，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（高点回落后缩量企稳）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配后写入 report/蓄力票扫描/YYYY-MM-DD.md；只做发现筛选，不输出买卖信号 |
 | [watchlist-review](watchlist-review/) | 观察池审视 | 逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查 | 按收盘复盘规范输出该股第 3–5 步（个股触发判断/量价四句/明日预案行），结果与明日预案追加 STOCK-REVIEW.md，供 stock-report 收盘版汇总 |
-| [stock-report](stock-report/) | 每日复盘 | 午间 11:45 精简版 / 收盘 15:15 完整版：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 观察池审视（$watchlist-review）+ 生成复盘报告写入 report/，配置邮箱时经 agently-mail 同步发送 |
+| [stock-report](stock-report/) | 每日复盘 | 午间 11:45 精简版 / 收盘 15:15 完整版：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 观察池审视（$watchlist-review）+ 生成复盘报告写入 report/股票午间复盘/ 或 report/股票每日复盘/，配置邮箱时经 agently-mail 同步发送 |
 | [position-management](position-management/) | 资金与持仓档案 | 每次动作前输出资金调度卡（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%降档1%；实际可用资产=本金+总盈亏−累计支取），处理建仓/加仓/减仓/空仓/清仓（建仓时创建 STOCK-REVIEW.md 写入交易计划、创建 TRADE-SUMMARY.md）、平仓复盘与总结并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md |
 | [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化 | 创建工作区目录与种子文件，收集交易费用设置，并把目录/文件规则、SKILL 版本与升级约束、条件单规则与状态更新规则写入 AGENTS.md |
 
@@ -57,9 +57,9 @@ stock-analysis 在输出「建仓/加仓」信号时完成六格清单分析（�
 
 leader-catch 是可选的“龙头扫描”入口（不属于每日闭环）：扫描市场活跃板块/指定题材的行业龙头与人气龙头，报告把「最强」与「值得买」分开；值得深查的候选先经 stock-analysis 出建仓/空仓信号，再决定进观察池（watchlist-review）或建仓（position-management），禁止跳过体检直接按“龙头”买入。
 
-limit-up 是可选的“涨停板情绪复盘”入口（不属于每日闭环）：用涨停/跌停/炸板家数、连板高度、晋级率与炸板率描述当日情绪与主线；报告写入 report/涨停板复盘-YYYY-MM-DD.md，只做数据复盘，买卖判断仍走 stock-analysis → position-management。
+limit-up 是可选的“涨停板情绪复盘”入口（不属于每日闭环）：用涨停/跌停/炸板家数、连板高度、晋级率与炸板率描述当日情绪与主线；报告写入 report/涨停板复盘/YYYY-MM-DD.md，只做数据复盘，买卖判断仍走 stock-analysis → position-management。
 
-find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）：必须先执行 leader-catch 做强势板块分析，再在板块内筛 A/B 型蓄力票并写 report/蓄力票扫描-YYYY-MM-DD.md；发现结果只作候选，是否值得买仍走 stock-analysis → position-management。
+find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）：必须先执行 leader-catch 做强势板块分析，再在板块内筛 A/B 型蓄力票并写 report/蓄力票扫描/YYYY-MM-DD.md；发现结果只作候选，是否值得买仍走 stock-analysis → position-management。
 
 每笔清仓后 position-management 把交易记录写入根目录 TRADE-STATS.md，每 5-10 笔结算胜率、平均盈亏、期望值、最大回撤，用统计判断系统是否有效、下一步该改哪一端（入场端/出场端），一次只改一条规则。
 
@@ -75,7 +75,7 @@ find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）�
 - watchlist-review 审视观察池时逐个自动调用 stock-analysis；观察池进出由 stock-analysis 信号决定（观察→进池等待、空仓信号→移除）
 - buying-at-close 快筛出的候选须逐只经 $stock-analysis 输出「建仓信号」后才允许给「买入」结论；尾盘时间/仓位/次日纪律以 MUST「尾盘买入法执行规则」为准
 - stock-review 只检查 POSITION.md 中的持仓；触发止损/止盈/时间止损时只给出平仓结论，不强制下单（可能不在交易时段）
-- stock-report 每日复盘汇总两条审视线：收盘版按 大盘→板块→个股→量价→预案 组装 $stock-review（已持仓审视）与 $watchlist-review（观察池审视）的输出；复盘报告先写入 report/，有邮箱时经 $agently-mail 同步发送
+- stock-report 每日复盘汇总两条审视线：收盘版按 大盘→板块→个股→量价→预案 组装 $stock-review（已持仓审视）与 $watchlist-review（观察池审视）的输出；复盘报告先写入 report/ 对应子目录，有邮箱时经 $agently-mail 同步发送
 - 用户卖出后调用 position-management 告知卖出价，由它按实际成交价结算并完成平仓总结与归档
 - stock-analysis 的加仓六格清单分析必须有「加仓」信号、POSITION.md 持仓与既有交易计划（STOCK-REVIEW.md / history 归档），缺一不输出
 - 工作区没有 TRADE-RULES.md：六格清单分析由 stock-analysis 输出（不落盘）；交易计划写在 STOCK-REVIEW.md（建仓时），平仓复盘只写 TRADE-SUMMARY.md（均由 position-management 维护）

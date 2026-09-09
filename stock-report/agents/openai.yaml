@@ -1,3 +1,3 @@
 interface:
   display_name: "股票每日复盘"
-  short_description: "每日午间/收盘复盘：收盘版五步（大盘→板块→个股→量价→预案），复盘报告写入 report/（有邮箱时同步发送）"
+  short_description: "每日午间/收盘复盘：收盘版五步（大盘→板块→个股→量价→预案），复盘报告写入 report/ 对应子目录（有邮箱时同步发送）"
