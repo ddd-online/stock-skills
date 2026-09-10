@@ -13,12 +13,12 @@
 | [buying-at-close](buying-at-close/) | 尾盘执行入口 | 14:30 后拉取大盘与强势股榜（默认换手 5%–30%）快筛候选，盘口初审后逐只经 $stock-analysis 全面分析（建仓信号为买入前提），按 MUST「尾盘买入法执行规则」输出「买入/不买」报告并写入 report/尾盘买入审视/YYYY-MM-DD.md；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
 | [leader-catch](leader-catch/) | 龙头扫描入口 | 识别市场活跃板块或指定板块/题材里的行业龙头（基本面第一梯队）与人气龙头（板块相对最强，四查两两打分），报告把「最强」与「值得买」分开标注，写入 report/龙头扫描/YYYY-MM-DD.md；只出扫描结论不下单，深查交接 $stock-analysis，仓位与观察池分别走 $position-management / $watchlist-review |
 | [limit-up](limit-up/) | 涨停情绪复盘 | 复盘涨停/跌停/炸板家数与封板率、连板高度与最高板（一字核对）、昨日涨停今日晋级表现与炸板潮，并把当日主线板块与板块行情榜（板块行）合并写入 report/涨停板复盘/YYYY-MM-DD.md；只出数据判定，不下单不预测 |
-| [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $leader-catch 做强势板块分析，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（冲高后大跌转横盘）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配后写入 report/蓄力票扫描/YYYY-MM-DD.md；只做发现筛选、不依赖工作区文件，不输出买卖信号 |
+| [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $leader-catch 做强势板块分析，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（冲高后大跌转横盘）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配、并按 ACCOUNT.md 板块权限排除无法买入的股票后写入 report/蓄力票扫描/YYYY-MM-DD.md；只做发现筛选，不输出买卖信号 |
 | [watchlist-review](watchlist-review/) | 观察池审视 | 逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查 | 按收盘复盘规范输出该股第 3–5 步（个股触发判断/量价四句/明日预案行），结果与明日预案追加 STOCK-REVIEW.md，供 stock-report 收盘版汇总 |
 | [stock-report](stock-report/) | 每日复盘 | 午间 11:45 精简版 / 收盘 15:15 完整版：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 观察池审视（$watchlist-review）+ 生成复盘报告写入 report/股票午间复盘/ 或 report/股票每日复盘/，配置邮箱时经 agently-mail 同步发送 |
 | [position-management](position-management/) | 资金与持仓档案 | 每次动作前输出资金调度卡（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%降档1%；实际可用资产=本金+总盈亏−累计支取），处理建仓/加仓/减仓/空仓/清仓（建仓时创建 STOCK-REVIEW.md 写入交易计划、创建 TRADE-SUMMARY.md）、平仓复盘与总结并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md |
-| [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化 | 创建工作区目录与种子文件，收集交易费用设置，并把目录/文件规则、SKILL 版本与升级约束、条件单规则与状态更新规则写入 AGENTS.md |
+| [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化 | 创建工作区目录与种子文件，收集交易费用设置与板块权限（主板/创业板/科创板/北交所/ST，未开通板块不交易），并把目录/文件规则、SKILL 版本与升级约束、条件单规则与状态更新规则写入 AGENTS.md |
 
 ## 安装（Codex）
 
@@ -66,8 +66,8 @@ find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）�
 空仓期/等待期：$watchlist-review 审视观察池——逐只调用 $stock-analysis，按信号更新 WATCHLIST.md 状态；没有触发条件不建仓。空仓期间 $stock-report 收盘复盘照常执行（只做大盘/板块 + 观察池），不产生个股预案。
 
 调用约束：
-- 前置：除 leader-catch、limit-up、find-simmer（纯数据扫描/复盘/筛选，不读取工作区文件，可在任意目录运行）外，其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
-- 除 leader-catch、limit-up、find-simmer 外，所有 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
+- 前置：leader-catch、limit-up 为纯数据技能，不读取工作区文件、可在任意目录运行；find-simmer 仅读取 ACCOUNT.md 的「板块权限」用于排除无法买入的股票；其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
+- leader-catch、limit-up 不读取 MUST.md；find-simmer 仅按 ACCOUNT.md 板块权限过滤、不读取 MUST.md；其余 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
 - leader-catch 只识别龙头并给出「值得进一步评估」名单，不输出买卖结论；候选须经 $stock-analysis 输出建仓信号后才可走 $position-management
 - stock-analysis 输出建仓/加仓信号（含六格清单分析）后，才调用 position-management；减仓/空仓信号直接调用 position-management；用户直接请求建仓而 position-management 未收到 stock-analysis 的支撑位/压力位（买点/止损/止盈）分析时，先调用 stock-analysis 获取后再做资金调度
 - 资金调度（现金储备、单笔预算、批次、手数）全部由 position-management 确认；stock-analysis 只输出信号、锚点与建议
