@@ -1,6 +1,6 @@
 ---
 name: market-data
-description: 拉取A股真实市场数据并输出数据报告（行情/日K/MA、财报核心指标、新闻公告、资金流向、强势股榜、板块行情榜/成分股榜/板块财务榜、涨停板数据，腾讯与东方财富公开接口，无需密钥）。其他 SKILL（stock-analysis、stock-review、position-management、stock-report、buying-at-close、leader-catch、find-limit 等）需要行情/财报/新闻/资金/强势股/板块龙头候选/涨停板数据时调用本 SKILL，不自行重复实现。当用户请求“查行情、看报价、拉数据、查财报、看新闻公告、看资金流向、看涨幅榜、选强势股、看板块/题材榜、扫龙头、看涨停/跌停/连板/炸板、复盘涨停”或分析、复盘前需要真实数据时使用。
+description: 拉取A股真实市场数据并输出数据报告（行情/日K/MA、财报核心指标、新闻公告、资金流向、强势股榜、板块行情榜/成分股榜/板块财务榜、涨停板数据，腾讯与东方财富公开接口，无需密钥）。其他 SKILL（stock-analysis、stock-review、position-management、stock-report、buying-at-close、find-leader、find-limit 等）需要行情/财报/新闻/资金/强势股/板块龙头候选/涨停板数据时调用本 SKILL，不自行重复实现。当用户请求“查行情、看报价、拉数据、查财报、看新闻公告、看资金流向、看涨幅榜、选强势股、看板块/题材榜、扫龙头、看涨停/跌停/连板/炸板、复盘涨停”或分析、复盘前需要真实数据时使用。
 ---
 
 # 市场数据报告（market-data）
