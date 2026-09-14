@@ -1,4 +1,0 @@
-interface:
-  display_name: "Excalidraw 图生成（excalidraw-diagram-generator）"
-  short_description: "把自然语言描述画成 Excalidraw 图：流程图、关系图、思维导图、系统架构、数据流、泳道、类图、时序图、ER 图，输出可直接打开的 .excalidraw 文件"
-  default_prompt: "使用 $excalidraw-diagram-generator 把我描述的流程画成 Excalidraw 流程图文件"
