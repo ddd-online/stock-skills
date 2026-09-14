@@ -49,9 +49,7 @@
 
 ## 交易流程
 
-![stock-skills 交易流程图](docs/stock-skills-flowchart.png)
-
-流程图含义：setup-stock-workspace 只执行一次；之后每个交易日从“入口”进入分析线——入口有三个：用户直接要求分析个股、$find-leader 龙头扫描、$buying-at-close 尾盘审视；“买入结论”经 position-management 落到股票持仓，“等待观察”进观察池；已持仓与观察池分别由 stock-review、watchlist-review 审视并回写，stock-report 把两条审视结果汇总为复盘报告与明日预案，形成“当日复盘 → 次日 9:25 执行”的循环。
+交易线含义：setup-stock-workspace 只执行一次；之后每个交易日从“入口”进入分析线——入口有三个：用户直接要求分析个股、$find-leader 龙头扫描、$buying-at-close 尾盘审视；“买入结论”经 position-management 落到股票持仓，“等待观察”进观察池；已持仓与观察池分别由 stock-review、watchlist-review 审视并回写，stock-report 把两条审视结果汇总为复盘报告与明日预案，形成“当日复盘 → 次日 9:25 执行”的循环。
 
 stock-analysis 在输出「建仓/加仓」信号时完成六格清单分析（选什么/何时买/买多少/错了怎么办/对了怎么办/交易后，不落盘），交接给 position-management；STOCK-REVIEW.md「交易计划」是该股唯一落盘的规则来源（六格要素 + 资金调度结果：金额/手数/费用/最大亏损/盈亏比），持仓期间遵守、不临时修改。position-management 做资金调度确认并执行建仓/加仓——建仓执行时创建 STOCK-REVIEW.md（写入交易计划）与 TRADE-SUMMARY.md（追加买入记录）；「减仓/空仓」信号直接由 position-management 做资金调度（减仓/清仓）。持仓期间的每日检查由 stock-review 负责（只向既有 STOCK-REVIEW.md 追加每日检查行），清仓后的平仓复盘与总结（只写 TRADE-SUMMARY.md——四层复盘总结——随后归档）由 position-management 负责。
 
