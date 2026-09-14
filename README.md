@@ -12,7 +12,7 @@
 | [stock-analysis](stock-analysis/) | 个股分析与信号 | 结合工作区账户/持仓/笔记，全面分析一只 A 股并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；建仓/加仓信号输出六格清单分析（不落盘，交接给 position-management 汇总进 STOCK-REVIEW.md 交易计划） |
 | [buying-at-close](buying-at-close/) | 尾盘执行入口 | 14:30 后拉取大盘与强势股榜（默认换手 5%–30%）快筛候选，盘口初审后逐只经 $stock-analysis 全面分析（建仓信号为买入前提），按 MUST「尾盘买入法执行规则」输出「买入/不买」报告并写入 report/尾盘买入审视/YYYY-MM-DD.md；买入结论附次日止损止盈规则（9:25 竞价处理、1-3 日时间止损）；MUST 缺该节时补一节并写入默认条件阈值 |
 | [leader-catch](leader-catch/) | 龙头扫描入口 | 识别市场活跃板块或指定板块/题材里的行业龙头（基本面第一梯队）与人气龙头（板块相对最强，四查两两打分），报告把「最强」与「值得买」分开标注，写入 report/龙头扫描/YYYY-MM-DD.md；只出扫描结论不下单，深查交接 $stock-analysis，仓位与观察池分别走 $position-management / $watchlist-review |
-| [limit-up](limit-up/) | 涨停情绪复盘 | 复盘涨停/跌停/炸板家数与封板率、连板高度与最高板（一字核对）、昨日涨停今日晋级表现与炸板潮，并把当日主线板块与板块行情榜（板块行）合并写入 report/涨停板复盘/YYYY-MM-DD.md；只出数据判定，不下单不预测 |
+| [find-limit](find-limit/) | 涨停数据查找 | 查找当日涨停/跌停/炸板家数与封板率、连板高度与最高板（一字核对）、昨日涨停今日晋级表现与炸板潮，并把当日主线板块与板块行情榜（板块行）合并写入 report/涨停板复盘/YYYY-MM-DD.md；只查找数据并出判定，不下单不预测 |
 | [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $leader-catch 做强势板块分析，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（冲高后大跌转横盘）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配、并按 ACCOUNT.md 板块权限排除无法买入的股票后写入 report/蓄力票扫描/YYYY-MM-DD.md；只做发现筛选，不输出买卖信号 |
 | [watchlist-review](watchlist-review/) | 观察池审视 | 逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查 | 按收盘复盘规范输出该股第 3–5 步（个股触发判断/量价四句/明日预案行），结果与明日预案追加 STOCK-REVIEW.md，供 stock-report 收盘版汇总 |
@@ -25,14 +25,14 @@
 在 Codex 中粘贴下面的提示词，Codex 会用 $skill-installer 从本仓库下载并安装全部 skill（需网络，公开仓库默认直连下载）：
 
 ```
-使用 $skill-installer 从 GitHub 仓库 ddd-online/stock-skills 安装以下 skills：market-data、stock-analysis、buying-at-close、leader-catch、limit-up、find-simmer、watchlist-review、stock-review、stock-report、position-management、setup-stock-workspace
+使用 $skill-installer 从 GitHub 仓库 ddd-online/stock-skills 安装以下 skills：market-data、stock-analysis、buying-at-close、leader-catch、find-limit、find-simmer、watchlist-review、stock-review、stock-report、position-management、setup-stock-workspace
 ```
 
 安装位置：`$CODEX_HOME/skills/<skill-name>`（默认 `~/.codex/skills`）。安装后下一个会话即可用 `$skill-name` 调用：
 
 ```
 使用 $leader-catch 扫描今天市场最活跃板块的行业龙头与人气龙头，把「最强」和「值得买」分开
-使用 $limit-up 复盘今日涨停板：涨停跌停家数、最高几板、晋级率与炸板潮、当日主线板块
+使用 $find-limit 查找今日涨停板数据：涨停跌停家数、最高几板、晋级率与炸板潮、当日主线板块
 使用 $find-simmer 在今日强势板块里找蓄力票（先执行 $leader-catch）
 使用 $stock-analysis 分析 sh600410 该建仓还是空仓
 使用 $buying-at-close 做今天 14:45 的尾盘买入审视
@@ -57,7 +57,7 @@ stock-analysis 在输出「建仓/加仓」信号时完成六格清单分析（�
 
 leader-catch 是可选的“龙头扫描”入口（不属于每日闭环）：扫描市场活跃板块/指定题材的行业龙头与人气龙头，报告把「最强」与「值得买」分开；值得深查的候选先经 stock-analysis 出建仓/空仓信号，再决定进观察池（watchlist-review）或建仓（position-management），禁止跳过体检直接按“龙头”买入。
 
-limit-up 是可选的“涨停板情绪复盘”入口（不属于每日闭环）：用涨停/跌停/炸板家数、连板高度、晋级率与炸板率描述当日情绪与主线；报告写入 report/涨停板复盘/YYYY-MM-DD.md，只做数据复盘，买卖判断仍走 stock-analysis → position-management。
+find-limit 是可选的“涨停板数据查找”入口（不属于每日闭环）：用涨停/跌停/炸板家数、连板高度、晋级率与炸板率描述当日情绪与主线；报告写入 report/涨停板复盘/YYYY-MM-DD.md，只做数据查找与判定，买卖判断仍走 stock-analysis → position-management。
 
 find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）：必须先执行 leader-catch 做强势板块分析，再在板块内筛 A/B 型蓄力票并写 report/蓄力票扫描/YYYY-MM-DD.md；发现结果只作候选，是否值得买仍走 stock-analysis → position-management。
 
@@ -66,8 +66,8 @@ find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）�
 空仓期/等待期：$watchlist-review 审视观察池——逐只调用 $stock-analysis，按信号更新 WATCHLIST.md 状态；没有触发条件不建仓。空仓期间 $stock-report 收盘复盘照常执行（只做大盘/板块 + 观察池），不产生个股预案。
 
 调用约束：
-- 前置：leader-catch、limit-up 为纯数据技能，不读取工作区文件、可在任意目录运行；find-simmer 仅读取 ACCOUNT.md 的「板块权限」用于排除无法买入的股票；其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
-- leader-catch、limit-up 不读取 MUST.md；find-simmer 仅按 ACCOUNT.md 板块权限过滤、不读取 MUST.md；其余 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
+- 前置：leader-catch、find-limit 为纯数据技能，不读取工作区文件、可在任意目录运行；find-simmer 仅读取 ACCOUNT.md 的「板块权限」用于排除无法买入的股票；其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
+- leader-catch、find-limit 不读取 MUST.md；find-simmer 仅按 ACCOUNT.md 板块权限过滤、不读取 MUST.md；其余 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
 - leader-catch 只识别龙头并给出「值得进一步评估」名单，不输出买卖结论；候选须经 $stock-analysis 输出建仓信号后才可走 $position-management
 - stock-analysis 输出建仓/加仓信号（含六格清单分析）后，才调用 position-management；减仓/空仓信号直接调用 position-management；用户直接请求建仓而 position-management 未收到 stock-analysis 的支撑位/压力位（买点/止损/止盈）分析时，先调用 stock-analysis 获取后再做资金调度
 - 资金调度（现金储备、单笔预算、批次、手数）全部由 position-management 确认；stock-analysis 只输出信号、锚点与建议
