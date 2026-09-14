@@ -1,6 +1,6 @@
 # stock-skills — A股交易 Codex Skills 集合
 
-中文 A 股实盘交易辅助的 Codex skills 集合：核心闭环覆盖「个股分析 → 交易计划 → 建仓/持仓 → 清仓复盘 → 统计归档」，龙头扫描（find-leader）、涨停板查找（find-limit）、打板竞价评估（judge-limit）、蓄力票发现（find-simmer）是四个可选查找与评估入口。每个 skill 独立自包含（SKILL.md + references + scripts），真实数据统一由 market-data 拉取（腾讯行情 + 东方财富行情/板块/财报/新闻/资金流公开接口）并输出数据报告，无需密钥。
+中文 A 股实盘交易辅助的 Codex skills 集合：核心闭环覆盖「个股分析 → 交易计划 → 建仓/持仓 → 清仓复盘 → 统计归档」，龙头扫描（find-leader）、涨停板查找（find-limit）、打板竞价评估（judge-limit）、蓄力票发现（find-simmer）是四个可选查找与评估入口；另带一个通用画图工具 excalidraw-diagram-generator，与交易流程无关。每个 skill 独立自包含（SKILL.md + references + scripts），真实数据统一由 market-data 拉取（腾讯行情 + 东方财富行情/板块/财报/新闻/资金流公开接口）并输出数据报告，无需密钥。
 
 当前版本：4.0.0 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
 
@@ -19,13 +19,14 @@
 | [stock-report](stock-report/) | 每日复盘 | 午间 11:45 精简版 / 收盘 15:15 完整版：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 观察池审视（$watchlist-review）+ 生成复盘报告写入 report/股票午间复盘/ 或 report/股票每日复盘/，配置邮箱时经 agently-mail 同步发送 |
 | [position-management](position-management/) | 资金与持仓档案 | 每次动作前输出资金调度卡（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%降档1%；实际可用资产=本金+总盈亏−累计支取），处理建仓/加仓/减仓/空仓/清仓（建仓时创建 STOCK-REVIEW.md 写入交易计划、创建 TRADE-SUMMARY.md）、平仓复盘与总结并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md |
 | [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化 | 创建工作区目录与种子文件，收集交易费用设置与板块权限（主板/创业板/科创板/北交所/ST，未开通板块不交易），并把目录/文件规则、SKILL 版本与升级约束、条件单规则与状态更新规则写入 AGENTS.md |
+| [excalidraw-diagram-generator](excalidraw-diagram-generator/) | 通用工具（非交易） | 把自然语言描述生成 Excalidraw 图：流程图、关系图、思维导图、系统架构、数据流、泳道、类图、时序图、ER 图，输出可直接拖进 excalidraw.com 打开的 .excalidraw 文件；附 8 个图型模板与三个改图脚本（加箭头、加图标、拆分素材库，只用 Python 标准库）；本 skill 内容保持上游英文原文，来源 github/awesome-copilot |
 
 ## 安装（Codex）
 
 在 Codex 中粘贴下面的提示词，Codex 会用 $skill-installer 从本仓库下载并安装全部 skill（需网络，公开仓库默认直连下载）：
 
 ```
-使用 $skill-installer 从 GitHub 仓库 ddd-online/stock-skills 安装以下 skills：market-data、stock-analysis、find-leader、find-limit、judge-limit、find-simmer、watchlist-review、stock-review、stock-report、position-management、setup-stock-workspace
+使用 $skill-installer 从 GitHub 仓库 ddd-online/stock-skills 安装以下 skills：market-data、stock-analysis、find-leader、find-limit、judge-limit、find-simmer、watchlist-review、stock-review、stock-report、position-management、setup-stock-workspace、excalidraw-diagram-generator
 ```
 
 安装位置：`$CODEX_HOME/skills/<skill-name>`（默认 `~/.codex/skills`）。安装后下一个会话即可用 `$skill-name` 调用：
@@ -37,6 +38,7 @@
 使用 $find-simmer 在今日强势板块里找蓄力票（先执行 $find-leader）
 使用 $stock-analysis 分析 sh600410 该建仓还是空仓
 使用 $stock-report 做今天的收盘复盘
+使用 $excalidraw-diagram-generator 把「当日复盘 → 次日 9:25 执行」的交易闭环画成流程图
 ```
 
 也可以直接 clone 本仓库，把需要的 skill 文件夹复制到 `~/.codex/skills/`。
