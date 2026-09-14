@@ -18,14 +18,14 @@ stock-skills/
 └── AGENTS.md
 ```
 
-现有 skills（10 个）：market-data（数据层）、stock-analysis（个股分析与信号）、find-leader（龙头扫描）、find-limit（涨停板查找）、find-simmer（蓄力票发现）、watchlist-review（观察池审视）、stock-review（持仓每日检查）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
+现有 skills（11 个）：market-data（数据层）、stock-analysis（个股分析与信号）、find-leader（龙头扫描）、find-limit（涨停板查找）、judge-limit（打板竞价评估）、find-simmer（蓄力票发现）、watchlist-review（观察池审视）、stock-review（持仓每日检查）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
 
 约定：
 
 - SKILL.md 是唯一入口；references/ 与 scripts/ 一律相对 SKILL.md 解析路径。新增 skill 必须同时提供 SKILL.md 与 agents/openai.yaml。
 - 真实取数统一放在 market-data，其他 skill 调用 $market-data，不自行实现取数脚本。
-- 查找类 skill（find-leader、find-limit、find-simmer）不依赖工作区文件，可在任意目录运行；find-simmer 只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票。
-- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/龙头扫描/、report/涨停板复盘/、report/蓄力票扫描/）。
+- 查找类 skill（find-leader、find-limit、find-simmer）不依赖工作区文件，可在任意目录运行；find-simmer 只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票；judge-limit 不读工作区文件，但依赖 find-limit 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源。
+- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/龙头扫描/、report/涨停板复盘/、report/涨停板评估/、report/蓄力票扫描/）。
 - 新增或移除 skill 时，同步更新本文件的 skill 清单与 README 的技能表、安装清单、示例提示词、调用约束。
 
 ## 常用命令
@@ -39,6 +39,7 @@ python market-data/scripts/fetch_news.py sh600410 --news 3 --ann 3
 python market-data/scripts/fetch_capital_flow.py sh600410
 python market-data/scripts/fetch_strong_stocks.py --top 20
 python market-data/scripts/fetch_limit_up.py --date 20260908
+python market-data/scripts/fetch_auction.py --codes sh600410,sz002970 --top-board sz002790
 ```
 
 数据来自腾讯与东方财富公开接口（无需密钥），只打印报告、不写缓存文件。脚本约定：

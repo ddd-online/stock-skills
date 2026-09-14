@@ -11,6 +11,10 @@
 3) 昨日涨停股今日表现：继续涨停（晋级）家数与晋级率、上涨/下跌/平均涨幅；
 4) 涨停股行业分布（供“当日主线板块”合并板块行情榜使用）。
 
+--json 额外提供 zt_rows：当日涨停池全量明细（含首板，字段 code/name/board_count/
+amount_yi/industry/first_seal/turnover_pct 等），供上层 skill 生成涨停全名单与
+次日竞价评估使用；文本报告只列 2 板及以上的高标梯队。
+
 口径: 东财 push2ex 涨停板专题（涨停池不含 ST 与科创板）；--date 缺省时自动取最近
 有数据的交易日；不产生缓存文件。
 """
@@ -29,7 +33,11 @@ POOL_HOSTS = [
     "http://push2ex.eastmoney.com",
 ]
 
-QT_URL = "http://qt.gtimg.cn/q={codes}"
+QT_URLS = [
+    "https://qt.gtimg.cn/q={codes}",
+    "http://qt.gtimg.cn/q={codes}",
+    "http://sqt.gtimg.cn/q={codes}",
+]
 UT = "7eea3edcaed734bea9cbfc24409ed989"
 
 POOL_EP = {
@@ -165,8 +173,19 @@ def fetch_quotes(sec_codes):
     codes = [c for c in sec_codes if c]
     for i in range(0, len(codes), 40):
         chunk = codes[i:i + 40]
-        url = QT_URL.format(codes=",".join(chunk))
-        raw = http_get(url, "http://finance.qq.com").decode("gbk", errors="ignore")
+        raw = None
+        for tpl in QT_URLS:
+            for _ in range(2):
+                try:
+                    raw = http_get(tpl.format(codes=",".join(chunk)),
+                                   "http://finance.qq.com").decode("gbk", errors="ignore")
+                    break
+                except Exception:  # noqa: BLE001 接口抖动时换源重试
+                    raw = None
+            if raw:
+                break
+        if not raw:
+            continue
         for line in raw.splitlines():
             if not line.startswith("v_"):
                 continue
@@ -501,6 +520,7 @@ def main():
                 if prev_zt_n + prev_zb_n else None,
             },
             "board_levels": board_rows[:15],
+            "zt_rows": zt_rows,
             "prev_max_board": prev_max_board,
             "one_word": {code: bool(v) for code, v in one_word.items() if v is not None},
             "yesterday_performance": {

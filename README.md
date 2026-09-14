@@ -1,6 +1,6 @@
 # stock-skills — A股交易 Codex Skills 集合
 
-中文 A 股实盘交易辅助的 Codex skills 集合：核心闭环覆盖「个股分析 → 交易计划 → 建仓/持仓 → 清仓复盘 → 统计归档」，龙头扫描（find-leader）、涨停板查找（find-limit）、蓄力票发现（find-simmer）是三个可选查找入口。每个 skill 独立自包含（SKILL.md + references + scripts），真实数据统一由 market-data 拉取（腾讯行情 + 东方财富行情/板块/财报/新闻/资金流公开接口）并输出数据报告，无需密钥。
+中文 A 股实盘交易辅助的 Codex skills 集合：核心闭环覆盖「个股分析 → 交易计划 → 建仓/持仓 → 清仓复盘 → 统计归档」，龙头扫描（find-leader）、涨停板查找（find-limit）、打板竞价评估（judge-limit）、蓄力票发现（find-simmer）是四个可选查找与评估入口。每个 skill 独立自包含（SKILL.md + references + scripts），真实数据统一由 market-data 拉取（腾讯行情 + 东方财富行情/板块/财报/新闻/资金流公开接口）并输出数据报告，无需密钥。
 
 当前版本：3.4.0 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
 
@@ -12,6 +12,7 @@
 | [stock-analysis](stock-analysis/) | 个股分析与信号 | 结合工作区账户/持仓/笔记，全面分析一只 A 股并输出建仓/加仓/减仓/空仓信号（观察为等待中间态）：证据先行、结论最后（基本面/技术面/支撑压力/事件与资金面/风险），检查近期新闻/公告（逻辑证伪）与资金流向；附支撑位/压力位、买点、止损、止盈锚点与盈亏比；建仓/加仓信号输出六格清单分析（不落盘，交接给 position-management 汇总进 STOCK-REVIEW.md 交易计划） |
 | [find-leader](find-leader/) | 龙头扫描入口 | 查找市场活跃板块或指定板块/题材里的行业龙头（基本面第一梯队）与人气龙头（板块相对最强，四查两两打分），报告把「最强」与「值得买」分开标注，写入 report/龙头扫描/YYYY-MM-DD.md；只出扫描结论不下单，深查交接 $stock-analysis，仓位与观察池分别走 $position-management / $watchlist-review |
 | [find-limit](find-limit/) | 涨停数据查找 | 查找当日涨停/跌停/炸板家数与封板率、连板高度与最高板（一字核对）、昨日涨停今日晋级表现与炸板潮，并把当日主线板块与板块行情榜（板块行）合并写入 report/涨停板复盘/YYYY-MM-DD.md；只查找数据并出判定，不下单不预测 |
+| [judge-limit](judge-limit/) | 打板竞价评估 | 读 $find-limit 落盘的上一份涨停板复盘报告（涨停全名单/昨日最高板/晋级率与炸板率/主线板块），经 $market-data 批量取昨日涨停股今天的集合竞价：高开幅度、竞价成交额 ÷ 昨日全天成交额、集体分布，输出竞价三表中的表B（昨日涨停股集体竞价）与表C（板块竞价），写入 report/涨停板评估/YYYY-MM-DD.md；两条硬规则照写：竞价量占比一律用「竞价成交额 ÷ 昨日全天成交额」；出现「昨日最高板今天天地板或跌停」时当天不做任何打板动作，只观察 |
 | [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $find-leader 做强势板块分析，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（冲高后大跌转横盘）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配、并按 ACCOUNT.md 板块权限排除无法买入的股票后写入 report/蓄力票扫描/YYYY-MM-DD.md；只做发现筛选，不输出买卖信号 |
 | [watchlist-review](watchlist-review/) | 观察池审视 | 逐只调用 stock-analysis 分析池中标的，按结论更新状态（信号触发/等待/移除）并回写 WATCHLIST.md |
 | [stock-review](stock-review/) | 持仓每日检查 | 按收盘复盘规范输出该股第 3–5 步（个股触发判断/量价四句/明日预案行），结果与明日预案追加 STOCK-REVIEW.md，供 stock-report 收盘版汇总 |
@@ -24,7 +25,7 @@
 在 Codex 中粘贴下面的提示词，Codex 会用 $skill-installer 从本仓库下载并安装全部 skill（需网络，公开仓库默认直连下载）：
 
 ```
-使用 $skill-installer 从 GitHub 仓库 ddd-online/stock-skills 安装以下 skills：market-data、stock-analysis、find-leader、find-limit、find-simmer、watchlist-review、stock-review、stock-report、position-management、setup-stock-workspace
+使用 $skill-installer 从 GitHub 仓库 ddd-online/stock-skills 安装以下 skills：market-data、stock-analysis、find-leader、find-limit、judge-limit、find-simmer、watchlist-review、stock-review、stock-report、position-management、setup-stock-workspace
 ```
 
 安装位置：`$CODEX_HOME/skills/<skill-name>`（默认 `~/.codex/skills`）。安装后下一个会话即可用 `$skill-name` 调用：
@@ -32,6 +33,7 @@
 ```
 使用 $find-leader 扫描今天市场最活跃板块的行业龙头与人气龙头，把「最强」和「值得买」分开
 使用 $find-limit 查找今日涨停板数据：涨停跌停家数、最高几板、晋级率与炸板潮、当日主线板块
+使用 $judge-limit 做今日竞价评估：昨天涨停的票今天怎么开（表B 集体竞价、表C 板块竞价）
 使用 $find-simmer 在今日强势板块里找蓄力票（先执行 $find-leader）
 使用 $stock-analysis 分析 sh600410 该建仓还是空仓
 使用 $stock-report 做今天的收盘复盘
@@ -55,6 +57,8 @@ find-leader 是可选的“龙头扫描”入口（不属于每日闭环）：�
 
 find-limit 是可选的“涨停板数据查找”入口（不属于每日闭环）：用涨停/跌停/炸板家数、连板高度、晋级率与炸板率描述当日情绪与主线；报告写入 report/涨停板复盘/YYYY-MM-DD.md，只做数据查找与判定，买卖判断仍走 stock-analysis → position-management。
 
+judge-limit 是可选的“打板竞价评估”入口（不属于每日闭环）：9:25–9:30 读 $find-limit 的昨日涨停板复盘报告，输出表B（昨日涨停股集体竞价）与表C（板块竞价），并按两条硬规则给结论——竞价量占比按「竞价成交额 ÷ 昨日全天成交额」计算；最高板今天天地板或跌停则当天只观察。没有昨日报告先跑 $find-limit，本入口只出观察结论，买卖仍走 stock-analysis → position-management。
+
 find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）：必须先执行 find-leader 做强势板块分析，再在板块内筛 A/B 型蓄力票并写 report/蓄力票扫描/YYYY-MM-DD.md；发现结果只作候选，是否值得买仍走 stock-analysis → position-management。
 
 每笔清仓后 position-management 把交易记录写入根目录 TRADE-STATS.md，每 5-10 笔结算胜率、平均盈亏、期望值、最大回撤，用统计判断系统是否有效、下一步该改哪一端（入场端/出场端），一次只改一条规则。
@@ -62,8 +66,9 @@ find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）�
 空仓期/等待期：$watchlist-review 审视观察池——逐只调用 $stock-analysis，按信号更新 WATCHLIST.md 状态；没有触发条件不建仓。空仓期间 $stock-report 收盘复盘照常执行（只做大盘/板块 + 观察池），不产生个股预案。
 
 调用约束：
-- 前置：find-leader、find-limit 为纯数据技能，不读取工作区文件、可在任意目录运行；find-simmer 仅读取 ACCOUNT.md 的「板块权限」用于排除无法买入的股票；其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
-- find-leader、find-limit 不读取 MUST.md；find-simmer 仅按 ACCOUNT.md 板块权限过滤、不读取 MUST.md；其余 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
+- 前置：find-leader、find-limit、judge-limit 为纯数据技能，不读取工作区文件、可在任意目录运行（judge-limit 读取 report/涨停板复盘/ 下 $find-limit 的上一份报告作为样本来源，没有报告就说明原因结束）；find-simmer 仅读取 ACCOUNT.md 的「板块权限」用于排除无法买入的股票；其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
+- find-leader、find-limit、judge-limit 不读取 MUST.md；find-simmer 仅按 ACCOUNT.md 板块权限过滤、不读取 MUST.md；其余 SKILL 必须遵守工作区 MUST.md 中的个人交易风格与规则（默认只有一个标题，由用户编辑）
+- judge-limit 的硬规则不可绕过：竞价量占比一律按「竞价成交额 ÷ 昨日全天成交额」，出现「昨日最高板今天天地板或跌停」时当天只观察、不做任何打板动作；9:30 后运行必须标注“非竞价口径”，不得用全天成交额冒充竞价成交额
 - find-leader 只识别龙头并给出「值得进一步评估」名单，不输出买卖结论；候选须经 $stock-analysis 输出建仓信号后才可走 $position-management
 - stock-analysis 输出建仓/加仓信号（含六格清单分析）后，才调用 position-management；减仓/空仓信号直接调用 position-management；用户直接请求建仓而 position-management 未收到 stock-analysis 的支撑位/压力位（买点/止损/止盈）分析时，先调用 stock-analysis 获取后再做资金调度
 - 资金调度（现金储备、单笔预算、批次、手数）全部由 position-management 确认；stock-analysis 只输出信号、锚点与建议
