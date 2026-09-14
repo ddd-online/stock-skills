@@ -241,7 +241,7 @@ def render_text(rows, board, top, min_turnover, max_turnover,
     lines.append("")
     lines.append("排序：按涨跌幅从高到低；默认剔除 ST（名称含 ST）；"
                  "换手率过滤：{tdesc}；涨幅过滤：{gdesc}。"
-                 "数据未经验证，仅作尾盘审视初筛。".format(
+                 "数据未经验证，仅作强势股初筛。".format(
                      tdesc=turnover_desc(min_turnover, max_turnover),
                      gdesc=gain_desc(min_gain, max_gain)))
     if len(rows) < top:
