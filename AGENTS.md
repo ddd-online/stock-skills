@@ -26,7 +26,7 @@ stock-skills/
 - SKILL.md 是唯一入口；references/ 与 scripts/ 一律相对 SKILL.md 解析路径。新增 skill 必须同时提供 SKILL.md 与 agents/openai.yaml。
 - 真实取数统一放在 market-data，其他 skill 调用 $market-data，不自行实现取数脚本。
 - 查找类 skill（find-leader、find-limit、find-simmer）不依赖工作区文件，可在任意目录运行；find-simmer 只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票；judge-limit 不读工作区文件，但依赖 find-limit 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源。
-- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/龙头扫描/、report/涨停板复盘/、report/涨停板评估/、report/蓄力票扫描/）。
+- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/龙头扫描/、report/涨停板复盘/、report/涨停板评估/、report/蓄力票扫描/）；中间产物不留残留，例如 judge-limit 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
 - 新增或移除 skill 时，同步更新本文件的 skill 清单与 README 的技能表、安装清单、示例提示词、调用约束。
 - excalidraw-diagram-generator 是外部引入的通用画图工具（来源 github/awesome-copilot，内容保持上游英文原文，只补 agents/openai.yaml）：与交易闭环无关，不读取工作区文件、不参与报告落盘约定；只有主动更新上游时才改动其 SKILL.md / references / scripts / templates。
 
