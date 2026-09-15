@@ -429,7 +429,20 @@ def render_text(base, prev, zt_rows, zb_rows, dt_rows, prev_zt_rows,
                 r["zt_stat"], r["industry"]))
         lines.append("")
     if dt_rows:
-        lines.append("### 跌停池（Top 10）")
+        dt_dist = industry_distribution(dt_rows)
+        lines.append("### 跌停股行业分布（Top 10，供阵型结构说明）")
+        lines.append("")
+        if dt_dist:
+            lines.append("| # | 行业 | 跌停家数 | 占比% |")
+            lines.append("|---|---|---|---|")
+            for i, d in enumerate(dt_dist[:10], 1):
+                lines.append("| {} | {} | {} | {} |".format(
+                    i, d["industry"], d["count"], fmt_num(d["pct"], 1)))
+        else:
+            lines.append("跌停股行业字段缺失。")
+        lines.append("")
+        lines.append("### 跌停池明细（前 10 只；全量 {} 只见 --json 的 dt_rows）".format(
+            len(dt_rows)))
         lines.append("")
         lines.append("| 代码 | 名称 | 最新价 | 涨跌幅% | 行业 |")
         lines.append("|---|---|---|---|---|")
@@ -530,7 +543,8 @@ def main():
             },
             "industry_dist": industry_distribution(zt_rows),
             "zb_rows": zb_rows[:10],
-            "dt_rows": dt_rows[:10],
+            "dt_rows": dt_rows,
+            "dt_industry_dist": industry_distribution(dt_rows),
             "note": "数据来源：东方财富 push2ex + 腾讯行情；涨停池不含 ST 与科创板",
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
