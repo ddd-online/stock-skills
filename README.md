@@ -15,7 +15,7 @@
 | [judge-limit](judge-limit/) | 打板竞价评估 | 读 $find-limit 落盘的上一份涨停板复盘报告（涨停全名单/昨日最高板/晋级率与炸板率/主线板块），经 $market-data 批量取昨日涨停股今天的集合竞价：高开幅度、竞价成交额 ÷ 昨日全天成交额、集体分布，输出昨日涨停股集体竞价表与板块竞价表，写入 report/涨停板评估/YYYY-MM-DD.md（竞价清单为临时文件，运行结束即清理）；两条硬规则照写：竞价量占比一律用「竞价成交额 ÷ 昨日全天成交额」；出现「昨日最高板今天天地板或跌停」时当天不做任何打板动作，只观察 |
 | [find-simmer](find-simmer/) | 蓄力票发现 | 先执行 $find-leader 做强势板块分析，再在板块内发现“1周到本月缓慢上涨”的蓄力票——A 型回踩蓄力（冲高后大跌转横盘）/ B 型缓涨蓄力（沿均线慢涨抗跌），按大盘环境适配、并按 ACCOUNT.md 板块权限排除无法买入的股票后写入 report/蓄力票扫描/YYYY-MM-DD.md；只做发现筛选，不输出买卖信号 |
 | [stock-review](stock-review/) | 持仓每日检查 | 按收盘复盘规范输出该股第 3–5 步（个股触发判断/量价四句/明日预案行），结果与明日预案追加 STOCK-REVIEW.md，供 stock-report 收盘版汇总 |
-| [stock-report](stock-report/) | 每日复盘 | 午间 11:45 精简版 / 收盘 15:15 完整版：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 观察池审视（逐只调用 $stock-analysis）+ 生成复盘报告写入 report/股票午间复盘/ 或 report/股票每日复盘/，配置邮箱时经 agently-mail 同步发送 |
+| [stock-report](stock-report/) | 每日复盘 | 午间 11:45 精简版 / 收盘 15:15 完整版：收盘版按 大盘→板块→个股→量价→预案 五步做收盘复盘（大盘/板块由本 SKILL 分析，个股/量价/预案来自 $stock-review）+ 生成复盘报告写入 report/股票午间复盘/ 或 report/股票每日复盘/，配置邮箱时经 agently-mail 同步发送 |
 | [position-management](position-management/) | 资金与持仓档案 | 每次动作前输出资金调度卡（现金储备≥实际可用资产30%、单笔预算≤实际可用资产2%降档1%；实际可用资产=本金+总盈亏−累计支取），处理建仓/加仓/减仓/空仓/清仓（建仓时创建 STOCK-REVIEW.md 写入交易计划、创建 TRADE-SUMMARY.md）、平仓复盘与总结并归档；清仓时计算胜率/平均盈亏/期望值/最大回撤四指标写入 TRADE-STATS.md |
 | [setup-stock-workspace](setup-stock-workspace/) | 一次性初始化 | 创建工作区目录与种子文件，收集交易费用设置与板块权限（主板/创业板/科创板/北交所/ST，未开通板块不交易），并把目录/文件规则、SKILL 版本与升级约束、条件单规则与状态更新规则写入 AGENTS.md |
 
@@ -48,11 +48,11 @@
 
 ## 交易流程
 
-交易线含义：setup-stock-workspace 只执行一次；之后每个交易日从“入口”进入分析线——入口有三个：用户直接要求分析个股、$find-leader 龙头扫描、$find-limit 涨停板数据查找；“买入结论”经 position-management 落到股票持仓，“等待观察”进观察池（$stock-analysis 输出「观察」信号时自动写入 WATCHLIST.md）；已持仓由 stock-review 每日检查、观察池由 $stock-analysis 逐只审视，stock-report 把两条审视结果汇总为复盘报告与明日预案，形成“当日复盘 → 次日 9:25 执行”的循环。
+交易线含义：setup-stock-workspace 只执行一次；之后每个交易日从“入口”进入分析线——入口有三个：用户直接要求分析个股、$find-leader 龙头扫描、$find-limit 涨停板数据查找；stock-analysis 只分析并输出报告（不落盘、不维护观察池），“买入结论”经 position-management 落到股票持仓；已持仓由 stock-review 每日检查，stock-report 把检查结果汇总为复盘报告与明日预案，形成“当日复盘 → 次日 9:25 执行”的循环。
 
 stock-analysis 在输出「建仓/加仓」信号时完成六格清单分析（选什么/何时买/买多少/错了怎么办/对了怎么办/交易后，不落盘），交接给 position-management；STOCK-REVIEW.md「交易计划」是该股唯一落盘的规则来源（六格要素 + 资金调度结果：金额/手数/费用/最大亏损/盈亏比），持仓期间遵守、不临时修改。position-management 做资金调度确认并执行建仓/加仓——建仓执行时创建 STOCK-REVIEW.md（写入交易计划）与 TRADE-SUMMARY.md（追加买入记录）；「减仓/空仓」信号直接由 position-management 做资金调度（减仓/清仓）。持仓期间的每日检查由 stock-review 负责（只向既有 STOCK-REVIEW.md 追加每日检查行），清仓后的平仓复盘与总结（只写 TRADE-SUMMARY.md——四层复盘总结——随后归档）由 position-management 负责。
 
-find-leader 是可选的“龙头扫描”入口（不属于每日闭环）：扫描市场活跃板块/指定题材的行业龙头与人气龙头，报告把「最强」与「值得买」分开；值得深查的候选先经 stock-analysis 出建仓/空仓信号，再决定进观察池（stock-analysis 输出「观察」信号时自动写入 WATCHLIST.md）或建仓（position-management），禁止跳过体检直接按“龙头”买入。
+find-leader 是可选的“龙头扫描”入口（不属于每日闭环）：扫描市场活跃板块/指定题材的行业龙头与人气龙头，报告把「最强」与「值得买」分开；值得深查的候选先经 stock-analysis 出建仓/空仓信号（「观察」只是报告里的等待中间态，触发条件与预案写在报告里、不落盘），再决定是否建仓（position-management），禁止跳过体检直接按“龙头”买入。
 
 find-limit 是可选的“涨停板数据查找”入口（不属于每日闭环）：用涨停/跌停/炸板家数、连板高度、晋级率与炸板率描述当日情绪与主线，并在最后一步把当日加之前四次报告共五份汇总出阵型四态；报告写入 report/涨停板复盘/YYYY-MM-DD.md，只做数据查找与判定，买卖判断仍走 stock-analysis → position-management。
 
@@ -62,7 +62,7 @@ find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）�
 
 每笔清仓后 position-management 把交易记录写入根目录 TRADE-STATS.md，每 5-10 笔结算胜率、平均盈亏、期望值、最大回撤，用统计判断系统是否有效、下一步该改哪一端（入场端/出场端），一次只改一条规则。
 
-空仓期/等待期：观察池由 $stock-analysis 逐只审视（每日复盘里执行同一动作），按信号更新 WATCHLIST.md 状态；没有触发条件不建仓。空仓期间 $stock-report 收盘复盘照常执行（只做大盘/板块 + 观察池），不产生个股预案。
+空仓期/等待期：stock-analysis 的「观察」只是报告里的等待中间态（触发条件与预案写在报告里、由用户自行盯，不落盘、不维护观察池）；没有触发条件不建仓。空仓期间 $stock-report 收盘复盘照常执行（只做大盘/板块），不产生个股预案。
 
 调用约束：
 - 前置：find-leader、find-limit、judge-limit 为纯数据技能，不读取工作区文件、可在任意目录运行（judge-limit 读取 report/涨停板复盘/ 下 $find-limit 的上一份报告作为样本来源，没有报告就说明原因结束）；find-simmer 仅读取 ACCOUNT.md 的「板块权限」用于排除无法买入的股票；其余 SKILL 依赖工作区文件（ACCOUNT.md / NOTES.md / POSITION.md / MUST.md / stocks/），未初始化先运行 $setup-stock-workspace
@@ -72,9 +72,8 @@ find-simmer 是可选的“蓄力票发现”入口（不属于每日闭环）�
 - stock-analysis 输出建仓/加仓信号（含六格清单分析）后，才调用 position-management；减仓/空仓信号直接调用 position-management；用户直接请求建仓而 position-management 未收到 stock-analysis 的支撑位/压力位（买点/止损/止盈）分析时，先调用 stock-analysis 获取后再做资金调度
 - 资金调度（现金储备、单笔预算、批次、手数）全部由 position-management 确认；stock-analysis 只输出信号、锚点与建议
 - STOCK-REVIEW.md 与其交易计划由 position-management 建仓时创建/写入（涉及资金调度）；stock-review 只追加每日检查行
-- 观察池进出完全由 stock-analysis 信号决定（观察→自动写入/更新 WATCHLIST.md 等待、空仓信号→从池中移除）；要逐只审视池内标的时同样调用 stock-analysis
 - stock-review 只检查 POSITION.md 中的持仓；触发止损/止盈/时间止损时只给出平仓结论，不强制下单（可能不在交易时段）
-- stock-report 每日复盘汇总两条审视线：收盘版按 大盘→板块→个股→量价→预案 组装 $stock-review（已持仓审视）与 $stock-analysis（观察池审视）的输出；复盘报告先写入 report/ 对应子目录，有邮箱时经 $agently-mail 同步发送
+- stock-report 每日复盘汇总一条检查线：收盘版按 大盘→板块→个股→量价→预案 组装 $stock-review（已持仓检查）的输出；复盘报告先写入 report/ 对应子目录，有邮箱时经 $agently-mail 同步发送
 - 用户卖出后调用 position-management 告知卖出价，由它按实际成交价结算并完成平仓总结与归档
 - stock-analysis 的加仓六格清单分析必须有「加仓」信号、POSITION.md 持仓与既有交易计划（STOCK-REVIEW.md / history 归档），缺一不输出
 - 工作区没有 TRADE-RULES.md：六格清单分析由 stock-analysis 输出（不落盘）；交易计划写在 STOCK-REVIEW.md（建仓时），平仓复盘只写 TRADE-SUMMARY.md（均由 position-management 维护）
