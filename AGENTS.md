@@ -18,13 +18,14 @@ stock-skills/
 └── AGENTS.md
 ```
 
-现有 skills（11 个）：market-data（数据层）、stock-analysis（个股分析与信号）、find-leader（龙头扫描）、find-limit（涨停板查找）、judge-limit（打板竞价评估）、find-simmer（蓄力票发现）、watchlist-review（观察池审视）、stock-review（持仓每日检查）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
+现有 skills（10 个）：market-data（数据层）、stock-analysis（个股分析与信号）、find-leader（龙头扫描）、find-limit（涨停板查找）、judge-limit（打板竞价评估）、find-simmer（蓄力票发现）、stock-review（持仓每日检查）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
 
 约定：
 
 - SKILL.md 是唯一入口；references/ 与 scripts/ 一律相对 SKILL.md 解析路径。新增 skill 必须同时提供 SKILL.md 与 agents/openai.yaml。
 - 真实取数统一放在 market-data，其他 skill 调用 $market-data，不自行实现取数脚本。
 - 查找类 skill（find-leader、find-limit、find-simmer）不依赖工作区文件，可在任意目录运行；find-simmer 只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票；judge-limit 不读工作区文件，但依赖 find-limit 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源。
+- 观察池（WATCHLIST.md）没有独立 skill：进出与逐只审视都由 stock-analysis 执行（输出「观察」信号即自动写入/更新等待，空仓信号即移出），stock-report 每日复盘时逐只调用它汇总观察池审视结果。
 - 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/龙头扫描/、report/涨停板复盘/、report/涨停板评估/、report/蓄力票扫描/）；中间产物不留残留，例如 judge-limit 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
 - 新增或移除 skill 时，同步更新本文件的 skill 清单与 README 的技能表、安装清单、示例提示词、调用约束。
 

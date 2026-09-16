@@ -77,7 +77,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 - NOTES.md：复盘后沉淀的知识、教训、准则，逐条记录
 - POSITION.md：当前持仓状态（总览表 + 每只持仓明细小节：成本/现价/止损止盈/时间止损/买入理由/备注），建仓创建小节、动作后更新、清仓整节移除；买入/卖出后立即更新
 - MUST.md：个人交易风格与必须遵守的规则（默认只有一个标题，用户自行编辑），所有 SKILL 必须遵守
-- WATCHLIST.md：观察池（标的/类型/体检结论/触发条件/止损止盈预案/状态 + 条件单参数），由 stock-analysis 判定进出池并给出条件单参数，watchlist-review 定期审视更新
+- WATCHLIST.md：观察池（标的/类型/体检结论/触发条件/止损止盈预案/状态 + 条件单参数），由 stock-analysis 判定进出池、给出条件单参数并随手更新；要逐只审视池内标的时也由 stock-analysis 执行
 - TRADE-STATS.md：交易统计表（每笔清仓填一行；每 5-10 笔结算胜率/平均盈亏/期望值/最大回撤，用统计判断系统是否有效），由 position-management 更新
 - report/：复盘/审视报告输出根目录，按报告类型保存到子目录（如 report/股票午间复盘/YYYY-MM-DD.md、report/股票每日复盘/YYYY-MM-DD.md、report/龙头扫描/YYYY-MM-DD.md 等），目录与文件由对应 SKILL 创建写入
 - stocks/<股票名称-股票代码>/：每只股票一个文件夹（名称-代码，如 华胜天成-600410；名称以 POSITION.md / $market-data 为准，不编造）

@@ -21,7 +21,7 @@ description: 发现“蓄力票”——近1周到1个月内缓慢上涨、仍�
   3. 只读 ACCOUNT.md「板块权限」：读取主板/创业板/科创板/北交所是否开通、ST 是否允许交易；未提供或未确认时用保守默认（仅主板可交易、创业板/科创板/北交所未开通、ST 不交易）并标注“权限未提供，按默认处理”。不读取 MUST.md / NOTES.md / POSITION.md / WATCHLIST.md / stocks/；个人阈值（市值/换手/环境口径）只取用户请求中的说明，未说明则用本 SKILL 默认值并写进报告。
 - 大盘环境：先经 $market-data 拉 sh000001 的日K与 MA20/MA60，判上升/震荡/下跌市，用于“抗跌适配”判断。
 - 落盘：报告写入 report/蓄力票扫描/YYYY-MM-DD.md（report/ 与 report/蓄力票扫描/ 不存在则创建；同日再次运行覆盖更新并注明运行时间）。
-- 交接：本 SKILL 只“发现+筛选+写观察建议”，不输出买卖信号；是否值得买转 $stock-analysis，观察池写入由 $watchlist-review 处理，资金仓位走 $position-management。
+- 交接：本 SKILL 只“发现+筛选+写观察建议”，不输出买卖信号；是否值得买转 $stock-analysis，观察池写入由 $stock-analysis 处理（输出「观察」信号时自动写入/更新 WATCHLIST.md），资金仓位走 $position-management。
 
 ## 默认筛选阈值（经验默认；用户请求说明优先）
 
@@ -91,7 +91,7 @@ description: 发现“蓄力票”——近1周到1个月内缓慢上涨、仍�
 
 5. 备选名单表（代码/名称/板块/未入选原因一句话）
 6. 剔除说明：被剔除的代表性形态与原因（板块权限外、连板情绪票、单边下跌未横盘、横盘破位创新低、无历史人气的死横盘、环境不适配）
-7. 观察建议：对入选票给“继续跟踪条件”（A 型：放量突破横盘平台上沿视为再次启动、跌破平台下沿/创新低视为蓄力失败；B 型：跌破 MA20 收不回视为缓涨结束），实际进观察池由 $watchlist-review 执行
+7. 观察建议：对入选票给“继续跟踪条件”（A 型：放量突破横盘平台上沿视为再次启动、跌破平台下沿/创新低视为蓄力失败；B 型：跌破 MA20 收不回视为缓涨结束），实际进观察池由 $stock-analysis 输出「观察」信号时自动写入 WATCHLIST.md
 8. 结尾：“以上基于截至<数据日期>的真实数据，不构成投资建议，最终决定由用户作出。”
 
 ## 硬性规则
@@ -112,4 +112,4 @@ description: 发现“蓄力票”——近1周到1个月内缓慢上涨、仍�
 - references/simmer-cheatsheet.md — 蓄力票判定细则：A/B 型形态检查、量能对照、大盘适配与回撤计算口径（判定时读）。
 - $find-leader — 先决步骤：活跃/强势板块分析与主线挖掘（龙头视角）。
 - $market-data — 板块成分股榜 / 板块行情榜 / 个股日K·MA / 资金流向。
-- $stock-analysis / $watchlist-review / $position-management — 入选票的深查与观察池交接（本 SKILL 只给建议）。
+- $stock-analysis / $position-management — 入选票的深查与资金仓位（观察池写入由 $stock-analysis 自动完成；本 SKILL 只给建议）。
