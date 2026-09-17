@@ -1,4 +1,4 @@
 interface:
-  display_name: "股票交易工作区初始化"
-  short_description: "一次性初始化股票交易工作区：创建目录与种子文件，并把归档规则写入AGENTS.md"
-  default_prompt: "使用 $setup-stock-workspace 初始化当前项目的股票交易工作区"
+  display_name: "一次性初始化（setup-stock-workspace）"
+  short_description: "一次性初始化股票交易工作区（目录、种子文件、资金与板块规则）"
+  default_prompt: "使用 $setup-stock-workspace 初始化我的股票交易工作区"

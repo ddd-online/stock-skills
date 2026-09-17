@@ -1,3 +1,4 @@
 interface:
-  display_name: "股票每日复盘"
-  short_description: "每日午间/收盘复盘：收盘版五步（大盘→板块→个股→量价→预案），复盘报告写入 report/ 对应子目录（有邮箱时同步发送）"
+  display_name: "每日复盘（stock-report）"
+  short_description: "生成每日复盘（午间精简版/收盘完整版），可配置邮件发送"
+  default_prompt: "使用 $stock-report 做今天的收盘复盘"

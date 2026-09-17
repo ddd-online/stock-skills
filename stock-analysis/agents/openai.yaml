@@ -1,4 +1,4 @@
 interface:
-  display_name: "个股分析 + 持仓检查（值得买吗 / 该不该卖）"
-  short_description: "基于真实数据分析一只股票是否值得买（支撑压力、买点/止损/止盈锚点），并对已买入的持仓做每日检查，输出个股/量价/明日预案并追加到 STOCK-REVIEW.md"
-  default_prompt: "使用 $stock-analysis 分析 sh600410 是否值得买，并给出近期的支撑位和压力位"
+  display_name: "个股分析与持仓检查（stock-analysis）"
+  short_description: "分析个股出建仓/加仓/减仓/空仓信号，或对持仓做每日检查"
+  default_prompt: "使用 $stock-analysis 分析 sh600410 该建仓还是空仓"

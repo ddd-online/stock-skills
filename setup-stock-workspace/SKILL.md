@@ -1,6 +1,6 @@
 ---
 name: setup-stock-workspace
-description: 一次性初始化股票交易工作区：创建目录结构（ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、TRADE-STATS.md、history/YYYY-MM-DD/；stocks/股票名称-股票代码/ 下的 STOCK-REVIEW.md、TRADE-SUMMARY.md 由 position-management 建仓时创建，STOCK-REVIEW.md 写入交易计划；六格清单分析由 stock-analysis 输出、不落盘），收集交易费用设置（佣金费率、最低佣金、印花税、过户费与深/沪过户费口径）、板块权限（主板/创业板/科创板/北交所/ST，未开通的板块不交易）与资金规则（实际可用资产=本金+总盈亏−累计支取；现金储备≥实际可用资产30%，资产<5万免红线；单笔预算≤实际可用资产2%，连亏2笔降1%；违规处置与当前档位）写入 ACCOUNT.md，收集复盘/通知邮件收件人写入 AGENTS.md，填入种子模板，并把目录与文件规则、SKILL 版本与升级约束、状态更新规则写入 AGENTS.md（SKILL 版本记录初始化时按确认结果填写，升级后按该节约束同步），让之后的 agent 打开项目就知道如何归档交易。MUST.md 默认只有一个标题，由用户自行填写个人交易风格与必须遵守的规则，所有 SKILL 必须遵守；TRADE-STATS.md 是交易统计表（每笔清仓填一行，每 5-10 笔结算四指标）。当用户请求“初始化股票交易项目/新建交易工作区/搭建炒股 workspace”时使用；一个项目只运行一次。
+description: 一次性初始化股票交易工作区：创建 ACCOUNT.md、NOTES.md、POSITION.md、MUST.md、TRADE-STATS.md、history 等种子文件，收集交易费用、板块权限与资金规则，并把目录与文件规则写入工作区 AGENTS.md。当请求初始化交易项目、新建交易工作区时使用；一个项目只运行一次，不需要重复执行。
 ---
 
 # Setup Stock Workspace

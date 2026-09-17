@@ -1,4 +1,4 @@
 interface:
   display_name: "题材生命周期（limit-lifecycle）"
-  short_description: "读 limit-find 当日报告，给今日主线板块标点火/扩散/加速/退潮阶段与数字理由，跑龙头/涨停家数/资金三检查点，最后总结推荐题材板块与板块内候选股票"
-  default_prompt: "使用 $limit-lifecycle 看今日主线板块处在题材生命周期哪一阶段、这条线还活着吗（龙头/涨停家数/资金三检查点）、推荐哪个题材板块与板块内哪些股票"
+  short_description: "给主线板块标题材生命周期阶段，跑健康度三检查点并推荐板块与个股"
+  default_prompt: "使用 $limit-lifecycle 看今日主线板块处在哪一阶段、还活着吗、推荐哪个题材与哪些股票"
