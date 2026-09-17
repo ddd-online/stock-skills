@@ -135,4 +135,4 @@ description: A股龙头股查找（专题扫描）：查找“市场目前活跃
 - references/find-leader-identification.md — 龙头识别细则：行业龙头五步、人气龙头四查、两两对比示例、伪龙头与派发检查清单、“最强≠值得买”与五关映射（打分与复核时读）。
 - $market-data — 板块行情榜/成分股榜/板块财务排名/个股行情/新闻公告/资金流向统一取数。
 - $stock-analysis — 值得买深查（建仓/空仓信号、支撑压力、六格清单）。
-- $position-management / $stock-review — 五关中的仓位与每日检查环节（本 SKILL 只给名单与建议，不下单）。
+- $position-management / $stock-analysis 持仓检查模式 — 五关中的仓位与每日检查环节（本 SKILL 只给名单与建议，不下单）。

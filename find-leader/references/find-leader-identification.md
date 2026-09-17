@@ -69,7 +69,7 @@
 | 买点 | 回踩企稳收阳 / 放量突破回踩不破，不追涨停 | $stock-analysis 给锚点 |
 | 仓位 | 情绪属性票只给情绪票档位，总仓与现金红线不破 | $position-management |
 | 止损 | 买前写好，破位即走，跳空破位不等收盘 | $position-management / 交易计划 |
-| 复盘 | 每日预案表 + 平仓四层复盘 | $stock-review / $position-management |
+| 复盘 | 每日预案表 + 平仓四层复盘 | $stock-analysis 持仓检查模式 / $position-management |
 
 ## 6. 一票否决与风险检查清单
 

@@ -1,6 +1,6 @@
 # 仓库指南
 
-自包含的 A 股实盘交易 Codex skills 集合。每个 skill 覆盖交易生命周期中的一个环节：分析、查找、计划、建仓与持仓、复盘、一次性初始化。
+自包含的 A 股实盘交易 Codex skills 集合。每个 skill 覆盖交易生命周期中的一个环节：分析（含持仓每日检查）、查找、计划、建仓与持仓、复盘、一次性初始化。
 
 ## 仓库结构与模块组织
 
@@ -18,14 +18,14 @@ stock-skills/
 └── AGENTS.md
 ```
 
-现有 skills（10 个）：market-data（数据层）、stock-analysis（个股分析与信号）、find-leader（龙头扫描）、find-limit（涨停板查找）、judge-limit（打板竞价评估）、find-simmer（蓄力票发现）、stock-review（持仓每日检查）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
+现有 skills（9 个）：market-data（数据层）、stock-analysis（个股分析与持仓检查）、find-leader（龙头扫描）、find-limit（涨停板查找）、judge-limit（打板竞价评估）、find-simmer（蓄力票发现）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
 
 约定：
 
 - SKILL.md 是唯一入口；references/ 与 scripts/ 一律相对 SKILL.md 解析路径。新增 skill 必须同时提供 SKILL.md 与 agents/openai.yaml。
 - 真实取数统一放在 market-data，其他 skill 调用 $market-data，不自行实现取数脚本。
 - 查找类 skill（find-leader、find-limit、find-simmer）不依赖工作区文件，可在任意目录运行；find-simmer 只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票；judge-limit 不读工作区文件，但依赖 find-limit 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源。
-- 不使用观察池，也不创建 WATCHLIST.md 等状态文件：stock-analysis 只分析并输出报告，不落盘、不维护任何池或状态；「观察」只是报告里的等待中间态（触发条件与预案写在报告里，由用户自行盯）。
+- 不使用观察池，也不创建 WATCHLIST.md 等状态文件：stock-analysis 的分析模式只分析并输出报告，不落盘、不维护任何池或状态；「观察」只是报告里的等待中间态（触发条件与预案写在报告里，由用户自行盯）。同一 skill 的持仓检查模式只允许两处落盘——向既有 STOCK-REVIEW.md 追加每日检查行、回写 POSITION.md 现价与浮动盈亏（不建档、不改写交易计划）。
 - 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/龙头扫描/、report/涨停板复盘/、report/涨停板评估/、report/蓄力票扫描/）；中间产物不留残留，例如 judge-limit 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
 - 新增或移除 skill 时，同步更新本文件的 skill 清单与 README 的技能表、安装清单、示例提示词、调用约束。
 
@@ -60,7 +60,7 @@ python -m py_compile market-data/scripts/fetch_quote.py
 
 - Python：4 空格缩进，函数与变量 snake_case，UTF-8 编码，模块 docstring。
 - 只用标准库，禁止引入第三方依赖。
-- skill 目录用 kebab-case（如 stock-review）；脚本用 snake_case.py（如 fetch_quote.py）；工作区个股文件夹用「股票名称-股票代码」（如 华胜天成-600410）。
+- skill 目录用 kebab-case（如 stock-report）；脚本用 snake_case.py（如 fetch_quote.py）；工作区个股文件夹用「股票名称-股票代码」（如 华胜天成-600410）。
 - 所有文件 UTF-8；脚本把 stdout 重新配置为 UTF-8，兼容非中文终端。
 - 文档与注释一律中文，不出现课程、第 X 课、教学、作业、lesson 等字样——本仓库是知识集合，不是课程材料。
 - Markdown 文档不使用 emoji。
@@ -94,3 +94,7 @@ PR 要求：
 - 关联相关 issue（如有）。
 - 行为变化时附示例命令与输出。
 - 确认脚本已用真实数据跑过，没有编造数字。
+
+交流规则
+
+* **必须**使用中文与用户对话

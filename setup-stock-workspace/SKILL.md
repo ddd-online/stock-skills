@@ -79,7 +79,7 @@ description: 一次性初始化股票交易工作区：创建目录结构（ACCO
 - TRADE-STATS.md：交易统计表（每笔清仓填一行；每 5-10 笔结算胜率/平均盈亏/期望值/最大回撤，用统计判断系统是否有效），由 position-management 更新
 - report/：复盘/分析报告输出根目录，按报告类型保存到子目录（如 report/股票午间复盘/YYYY-MM-DD.md、report/股票每日复盘/YYYY-MM-DD.md、report/龙头扫描/YYYY-MM-DD.md 等），目录与文件由对应 SKILL 创建写入
 - stocks/<股票名称-股票代码>/：每只股票一个文件夹（名称-代码，如 华胜天成-600410；名称以 POSITION.md / $market-data 为准，不编造）
-  - STOCK-REVIEW.md：个股交易计划 + 每日检查记录（position-management 建仓时创建并写入交易计划；持仓期间 stock-review 追加每日检查行；stock-analysis 六格清单分析交接后不落盘）
+  - STOCK-REVIEW.md：个股交易计划 + 每日检查记录（position-management 建仓时创建并写入交易计划；持仓期间 stock-analysis 持仓检查模式追加每日检查行；stock-analysis 六格清单分析交接后不落盘）
   - TRADE-SUMMARY.md：个股交易记录与总结（position-management 按自己的模板创建：建仓/加仓/减仓/清仓逐笔追加交易记录，清仓时补写本次盈亏与总结）
   - history/YYYY-MM-DD/：清仓后将上述两个文件**移动**到该日期目录归档（工作区不留副本；下次建仓时由 position-management 重新创建）
 
@@ -97,7 +97,7 @@ stocks/ 初始为空，不建占位文件夹；首次交易某股时创建其「
 
 ### 交易生命周期
 
-分析（stock-analysis，含六格清单分析，不落盘）→ 建仓（position-management，资金调度 + 创建 STOCK-REVIEW.md 写入交易计划 + 更新 POSITION.md）→ 每日检查（stock-review，追加检查行，触发时给出平仓结论）→ 用户清仓 → 平仓总结（position-management 按卖出价结算，平仓复盘只写 TRADE-SUMMARY.md → 更新 TRADE-STATS.md 四指标 → 归档 history/日期/）→ 复盘结论沉淀到 NOTES.md
+分析（stock-analysis，含六格清单分析，不落盘）→ 建仓（position-management，资金调度 + 创建 STOCK-REVIEW.md 写入交易计划 + 更新 POSITION.md）→ 每日检查（stock-analysis 持仓检查模式，追加检查行，触发时给出平仓结论）→ 用户清仓 → 平仓总结（position-management 按卖出价结算，平仓复盘只写 TRADE-SUMMARY.md → 更新 TRADE-STATS.md 四指标 → 归档 history/日期/）→ 复盘结论沉淀到 NOTES.md
 
 ### 状态更新规则
 

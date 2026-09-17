@@ -8,7 +8,7 @@
 | 4 | MUST.md | 个人交易风格与必守规则，所有 SKILL 必须遵守 |
 | 5 | TRADE-STATS.md | 账户级交易统计：每笔清仓填一行（日期/股票/方向/价格/盈亏/是否符合系统/违规说明），每 5-10 笔结算胜率/平均盈亏/期望值/最大回撤 |
 | 6 | stocks/<股票名称-股票代码>/ | 每只股票一个文件夹，文件夹名=股票名称-股票代码（如 华胜天成-600410），名称以 POSITION.md / $market-data 返回为准，首次交易该股时创建 |
-| 7 | stocks/<股票名称-股票代码>/STOCK-REVIEW.md | 个股交易计划 + 每日检查记录：position-management 建仓时创建并写入交易计划；stock-review 持仓期间追加每日检查行（stock-analysis 六格清单分析交接后不落盘；平仓复盘只写 TRADE-SUMMARY.md） |
+| 7 | stocks/<股票名称-股票代码>/STOCK-REVIEW.md | 个股交易计划 + 每日检查记录：position-management 建仓时创建并写入交易计划；stock-analysis 持仓检查模式在持仓期间追加每日检查行（六格清单分析交接后不落盘；平仓复盘只写 TRADE-SUMMARY.md） |
 | 8 | stocks/<股票名称-股票代码>/TRADE-SUMMARY.md | 个股交易记录与总结：逐笔追加交易记录，清仓补写盈亏与总结；由 position-management 维护，清仓后归档 |
 | 9 | stocks/<股票名称-股票代码>/history/YYYY-MM-DD/ | 清仓归档目录：把 STOCK-REVIEW.md、TRADE-SUMMARY.md 移动到此 |
 

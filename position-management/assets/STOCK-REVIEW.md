@@ -1,6 +1,6 @@
 # <股票名> <代码> 每日检查
 
-交易计划由 position-management 在建仓执行时写入；每日检查由 stock-review 在持仓期间每天追加一行。
+交易计划由 position-management 在建仓执行时写入；每日检查由 stock-analysis 的持仓检查模式在持仓期间每天追加一行。
 
 ## 交易计划（建仓时填）
 
