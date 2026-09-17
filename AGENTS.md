@@ -18,15 +18,15 @@ stock-skills/
 └── AGENTS.md
 ```
 
-现有 skills（10 个）：market-data（数据层）、stock-analysis（个股分析与持仓检查）、find-leader（龙头扫描）、find-limit（涨停板查找）、limit-lifecycle（题材生命周期）、judge-limit（打板竞价评估）、find-simmer（蓄力票发现）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
+现有 skills（10 个）：market-data（数据层）、stock-analysis（个股分析与持仓检查）、leader-find（龙头扫描）、limit-find（涨停板查找）、limit-lifecycle（题材生命周期）、limit-judge（打板竞价评估）、simmer-find（蓄力票发现）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
 
 约定：
 
 - SKILL.md 是唯一入口；references/ 与 scripts/ 一律相对 SKILL.md 解析路径。新增 skill 必须同时提供 SKILL.md 与 agents/openai.yaml。
 - 真实取数统一放在 market-data，其他 skill 调用 $market-data，不自行实现取数脚本。
-- 查找类 skill（find-leader、find-limit、find-simmer）不依赖工作区文件，可在任意目录运行；find-simmer 只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票；judge-limit 不读工作区文件，但依赖 find-limit 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源；limit-lifecycle 依赖 find-limit 落盘的当日 report/涨停板复盘/YYYY-MM-DD.md 作为输入（没有当日报告先执行 find-limit，报告写入 report/题材生命周期/YYYY-MM-DD.md），并只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票。
+- 查找类 skill（leader-find、limit-find、simmer-find）不依赖工作区文件，可在任意目录运行；simmer-find 只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票；limit-judge 不读工作区文件，但依赖 limit-find 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源；limit-lifecycle 依赖 limit-find 落盘的当日 report/涨停板复盘/YYYY-MM-DD.md 作为输入（没有当日报告先执行 limit-find，报告写入 report/题材生命周期/YYYY-MM-DD.md），并只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票。
 - 不使用观察池，也不创建 WATCHLIST.md 等状态文件：stock-analysis 的分析模式只分析并输出报告，不落盘、不维护任何池或状态；「观察」只是报告里的等待中间态（触发条件与预案写在报告里，由用户自行盯）。同一 skill 的持仓检查模式只允许两处落盘——向既有 STOCK-REVIEW.md 追加每日检查行、回写 POSITION.md 现价与浮动盈亏（不建档、不改写交易计划）。
-- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/龙头扫描/、report/涨停板复盘/、report/题材生命周期/、report/涨停板评估/、report/蓄力票扫描/）；中间产物不留残留，例如 judge-limit 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
+- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/龙头扫描/、report/涨停板复盘/、report/题材生命周期/、report/涨停板评估/、report/蓄力票扫描/）；中间产物不留残留，例如 limit-judge 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
 - 新增或移除 skill 时，同步更新本文件的 skill 清单与 README 的技能表、安装清单、示例提示词、调用约束。
 
 ## 常用命令
@@ -79,7 +79,7 @@ python -m py_compile market-data/scripts/fetch_quote.py
 
 ## 提交与发布约定
 
-提交信息用简短中文并点名改动的 skill（如 `find-simmer: 调整回踩蓄力口径`），也可用 conventional commits（feat:/fix:/docs:）。
+提交信息用简短中文并点名改动的 skill（如 `simmer-find: 调整回踩蓄力口径`），也可用 conventional commits（feat:/fix:/docs:）。
 
 发布流程（每次发版按序执行）：
 

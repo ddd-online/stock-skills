@@ -4,8 +4,8 @@
 
 ## 使用说明（生成报告前删除本节）
 
-- 先决条件：必须先有 $find-limit 的当日报告（report/涨停板复盘/YYYY-MM-DD.md）；没有就先执行 $find-limit，报告里写清所读报告的日期与份数。
-- 数据来源：主线板块、最高板与高标梯队、昨日涨停今日表现、开盘与尾盘分类、分板块晋级与炸板统计、阵型判定取自 find-limit 报告；板块换手/成交额、板块内个股换手与封板资金、板块成分股榜经 $market-data 补取（fetch_sector_boards / fetch_limit_up --json / fetch_sector_leaders）。
+- 先决条件：必须先有 $limit-find 的当日报告（report/涨停板复盘/YYYY-MM-DD.md）；没有就先执行 $limit-find，报告里写清所读报告的日期与份数。
+- 数据来源：主线板块、最高板与高标梯队、昨日涨停今日表现、开盘与尾盘分类、分板块晋级与炸板统计、阵型判定取自 limit-find 报告；板块换手/成交额、板块内个股换手与封板资金、板块成分股榜经 $market-data 补取（fetch_sector_boards / fetch_limit_up --json / fetch_sector_leaders）。
 - 板块权限：只读 ACCOUNT.md「板块权限」，报告注明来源与因权限剔除的只数；未提供时按保守默认（仅主板可交易、ST 不交易）并标注“权限未提供，按默认处理”。
 - 板块归属只按代码求交：用板块 BK 代码取**全量**成分股代码集合（fetch_sector_leaders --board BKxxxx --top 300，默认 30 只不够），再与涨停池/炸板池/跌停池/昨日涨停股按代码求交，不用行业名匹配（涨停池的行业名是 4 字截断名，会把「汽车零部」错配到「汽车」）。
 - `{{...}}` 为待填字段，一律替换为真实数字或「未获取」；接口拿不到就写「未获取」，不填 0、不脑补；缺数字的检查点格子写「未获取」并计入不确定。
@@ -16,11 +16,11 @@
 
 ---
 
-# 题材生命周期 · {{YYYY-MM-DD}}（数据日期 {{YYYY-MM-DD}}；运行时间 {{HH:MM}}；find-limit 报告来源 report/涨停板复盘/{{YYYY-MM-DD}}.md）
+# 题材生命周期 · {{YYYY-MM-DD}}（数据日期 {{YYYY-MM-DD}}；运行时间 {{HH:MM}}；limit-find 报告来源 report/涨停板复盘/{{YYYY-MM-DD}}.md）
 
 ## 数据来源与口径
 
-- find-limit 报告：{{N}} 份（{{起始日期}} ~ {{数据日期}}）；当日报告为 report/涨停板复盘/{{YYYY-MM-DD}}.md
+- limit-find 报告：{{N}} 份（{{起始日期}} ~ {{数据日期}}）；当日报告为 report/涨停板复盘/{{YYYY-MM-DD}}.md
 - $market-data 补取：{{板块行情榜（--type industry/concept --sort change/flow/gain5）/ 涨停池明细 fetch_limit_up.py --json / 板块成分股榜 fetch_sector_leaders.py --board BKxxxx --top 300（全量）}}
 - 板块归属口径：按 BK 代码取成分股集合后与涨停池/昨日涨停股按**代码求交**（行业名只作参考，不做名称匹配）
 - 板块权限：{{ACCOUNT.md「板块权限」/ 权限未提供，按默认处理（仅主板可交易、ST 不交易）}}；因权限剔除 {{n}} 只
@@ -57,7 +57,7 @@
 
 ## 板块内分化与强弱
 
-取自 find-limit 报告「昨日涨停股今日开盘与尾盘分类」；报告缺该节时写「未获取」。
+取自 limit-find 报告「昨日涨停股今日开盘与尾盘分类」；报告缺该节时写「未获取」。
 
 | 板块（代码） | 样本 | 高开 | 平开 | 低开 | 涨停 | 上涨 | 平 | 下跌 | 跌停 | 板块强弱 | 内部分化 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -123,11 +123,11 @@
 
 | 报告节 | 数据来源 |
 |---|---|
-| 数据来源与口径 | 本技能读到的 find-limit 报告清单 + 本次 $market-data 调用 + ACCOUNT.md「板块权限」 |
-| 主线板块生命周期表 | find-limit 报告「当日主线板块」「连板高度与最高板」「分板块晋级与炸板统计」+ fetch_sector_boards.py + fetch_limit_up.py --json |
+| 数据来源与口径 | 本技能读到的 limit-find 报告清单 + 本次 $market-data 调用 + ACCOUNT.md「板块权限」 |
+| 主线板块生命周期表 | limit-find 报告「当日主线板块」「连板高度与最高板」「分板块晋级与炸板统计」+ fetch_sector_boards.py + fetch_limit_up.py --json |
 | 阶段演变时间线 | report/涨停板复盘/ 下当日 + 之前四份报告的「当日主线板块」与「分板块晋级与炸板统计」 |
 | 主线健康度三检查表 | 「连板高度与最高板」+「昨日涨停今日表现」+「分板块晋级与炸板统计」+ 板块行主力净流入（昨日取上一份报告） |
-| 板块内分化与强弱 | find-limit 报告「昨日涨停股今日开盘与尾盘分类」 |
+| 板块内分化与强弱 | limit-find 报告「昨日涨停股今日开盘与尾盘分类」 |
 | 推荐题材板块与板块内股票 | 上面各表 + fetch_sector_leaders.py --board BKxxxx --top 300（全量成分股，取涨停股与跟随候选）+ ACCOUNT.md「板块权限」 |
 | 排除与不推荐清单 | 阶段判定结果 + 权限过滤结果 + 样本份数 |
 | 阶段与三检查点口径 | references/limit-lifecycle-cheatsheet.md（判定规则，不产数字） |

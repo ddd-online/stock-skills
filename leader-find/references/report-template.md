@@ -1,6 +1,6 @@
-# 龙头扫描报告模板（find-leader）
+# 龙头扫描报告模板（leader-find）
 
-> 用途：find-leader 生成 report/龙头扫描/YYYY-MM-DD.md 的固定骨架。节名、表头、列顺序照抄不改写、不调序；用户在后续追问（如「昨天扫到的龙头今天怎么样」「把最强和值得买分开」）时按同一套节名回看历史报告，改名或调序会让历史报告对不上。
+> 用途：leader-find 生成 report/龙头扫描/YYYY-MM-DD.md 的固定骨架。节名、表头、列顺序照抄不改写、不调序；用户在后续追问（如「昨天扫到的龙头今天怎么样」「把最强和值得买分开」）时按同一套节名回看历史报告，改名或调序会让历史报告对不上。
 
 ## 使用说明（生成报告前删除本节）
 
@@ -119,4 +119,4 @@
 | 活跃板块表 / 聚焦板块摘要 | fetch_sector_boards.py（行业榜、概念榜：--sort change / flow / gain5 / gain10） |
 | 人气龙头四查表 | fetch_sector_leaders.py（指定板块成分股榜，--board BKxxxx）+ fetch_quote.py（日K与 MA）+ fetch_capital_flow.py + fetch_news.py |
 | 行业龙头表 | fetch_sector_fundamentals.py（--board BKxxxx 营收榜/净利榜）+ fetch_fundamentals.py（多报告期质地）+ fetch_quote.py（PE/PB） |
-| 结论 / 观察建议 | 上面各表数字 + references/find-leader-identification.md 的四查与五关映射（判定口径，不产数字） |
+| 结论 / 观察建议 | 上面各表数字 + references/leader-find-identification.md 的四查与五关映射（判定口径，不产数字） |
