@@ -1,4 +1,4 @@
 interface:
   display_name: "蓄力票扫描（simmer-find）"
   short_description: "在强势板块里找 A 型回踩蓄力与 B 型缓涨蓄力票（不给买卖信号）"
-  default_prompt: "使用 $simmer-find 在今日强势板块里找蓄力票（先执行 $leader-find）"
+  default_prompt: "使用 $simmer-find 用今日板块行情榜定强势板块，再在板块里找蓄力票"
