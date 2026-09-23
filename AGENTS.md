@@ -25,6 +25,7 @@ stock-skills/
 - SKILL.md 是唯一入口；references/ 与 scripts/ 一律相对 SKILL.md 解析路径。新增 skill 必须同时提供 SKILL.md 与 agents/openai.yaml。
 - 元数据与篇幅：frontmatter description 只写「做什么 + 什么时候用 + 边界」，不罗列全部能力与触发词；agents/openai.yaml 的 short_description 控制在 25–64 字、default_prompt 一句话并点明 $skill-name。详细规格与示例放 references，SKILL.md 只留不可省略的硬性要求与指针，同一内容不在两处重复；报告类 skill 的硬性规则必须含「输出可视化」一条（数字进表格、趋势用箭头、状态用固定标记、不写散文式数字段、不用表情符号）。
 - 真实取数统一放在 market-data，其他 skill 调用 $market-data，不自行实现取数脚本。
+- 东财行情中心接口（push2 clist / stock 系列）可能不可用：market-data/scripts/fallback_sources.py 汇总腾讯行情与日K、新浪行情榜与个股资金流、东财数据中心 F10「所属板块」（按 BK 代码）与一级行业，供板块行情榜/板块成分股榜/板块财务排名/强势股榜/资金流向五个脚本自动切源；新增或改动取数脚本时沿用同一模块，输出必须标注实际数据源与口径差异（跨源数值不可混比）。
 - 查找类 skill（leader-find、limit-find、simmer-find）不依赖工作区文件，可在任意目录运行；leader-find 必须传入一个板块参数（板块名或 BK 代码），未给板块时不运行、先向用户索取，也不做全市场扫描；simmer-find 先用 market-data 的板块行情榜取强势板块，只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票；limit-judge 不读工作区文件，但依赖 limit-find 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源；limit-lifecycle 依赖 limit-find 落盘的当日 report/涨停板复盘/YYYY-MM-DD.md 作为输入（没有当日报告先执行 limit-find，报告写入 report/题材生命周期/YYYY-MM-DD.md），并只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票。
 - 不使用观察池，也不创建 WATCHLIST.md 等状态文件：stock-analysis 的分析模式只分析并输出报告，不落盘、不维护任何池或状态；「观察」只是报告里的等待中间态（触发条件与预案写在报告里，由用户自行盯）。同一 skill 的持仓检查模式只允许两处落盘——向既有 STOCK-REVIEW.md 追加每日检查行、回写 POSITION.md 现价与浮动盈亏（不建档、不改写交易计划）。
 - 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/涨停板复盘/、report/题材生命周期/、report/涨停板评估/、report/蓄力票扫描/、report/股票每日复盘/）；一次只分析一个板块的 skill 在日期后加板块名区分，如 leader-find 写 report/龙头扫描/YYYY-MM-DD-<板块名>.md（同一天多个板块各写一份）；中间产物不留残留，例如 limit-judge 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""A股 板块成分股财务排名数据报告（东方财富公开接口，无需密钥）。
+"""A股 板块成分股财务排名数据报告（东方财富为主、F10/腾讯为备用源，无需密钥）。
 
 用法:
-    python fetch_sector_fundamentals.py --board BK0882 [--top N] [--include-st] [--json]
+    python fetch_sector_fundamentals.py --board BK0882 [--top N] [--include-st]
+                                        [--source auto|eastmoney|f10] [--json]
 
 输出: 指定板块（BK 代码）总市值前 N 名成分股的最新报告期财务数据——
 营收（及同比）、净利（及同比）、毛利率、ROE、负债率，按营收与按净利分别排序，
@@ -11,18 +12,40 @@
 
 口径: 候选=板块内按总市值降序取前 N；财报=最近一期累计值（与去年同期比）；
 主营构成/收入占比不在本脚本范围，需另用 F10/公告核验。
+
+数据源: 财报一律取东方财富数据中心 F10（该主机可用）；成分股名单与板块行先取东财板块行情
+（push2 clist），该接口不可用时自动切备用源——名单取东财 F10「所属板块」（按 BK 代码匹配）、
+行情取腾讯快照、板块行按成分股等权自算，报告里标注数据源与口径。
 """
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.parse
 import urllib.request
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import fallback_sources as fb  # noqa: E402 与脚本同目录的备用取数模块
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+SOURCE_ORDER = {
+    "auto": ["eastmoney", "f10"],
+    "eastmoney": ["eastmoney"],
+    "f10": ["f10"],
+}
+
+SOURCE_NAMES = {
+    "eastmoney": "东方财富板块行情",
+    "f10": "东财 F10 所属板块 + 腾讯行情（备用源）",
+}
 
 HOSTS = [
     "https://push2.eastmoney.com",
@@ -133,6 +156,56 @@ def fetch_top_by_cap(bk_code, top):
     return ((data.get("data") or {}).get("diff") or [])
 
 
+def fetch_f10_board(bk_code, top, include_st):
+    """备用源：东财 F10 所属板块名单 + 腾讯快照，按总市值降序取前 top 名。"""
+    members = fb.fetch_f10_board_members(bk_code)
+    if not members:
+        raise RuntimeError(
+            "东财 F10 口径下没有 {} 的成分股：请确认 BK 代码来自 fetch_sector_boards 输出。".format(bk_code))
+    board_name = str(members[0].get("BOARD_NAME") or bk_code)
+    codes = []
+    seen = set()
+    for member in members:
+        code = fb.infer_sec_code(str(member.get("SECURITY_CODE") or ""))
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        codes.append(code)
+    quotes = fb.fetch_tencent_quotes(codes)
+    rows = []
+    for code in codes:
+        quote = quotes.get(code)
+        if not quote:
+            continue
+        name = quote.get("name") or "-"
+        if not include_st and "ST" in name.upper():
+            continue
+        rows.append({
+            "code": code,
+            "name": name,
+            "price": quote.get("price"),
+            "change_pct": quote.get("change_pct"),
+            "float_cap_yi": quote.get("float_cap_yi"),
+            "total_cap_yi": quote.get("total_cap_yi"),
+        })
+    if not rows:
+        raise RuntimeError("腾讯行情未取到 {} 的成分股行情。".format(bk_code))
+    rows.sort(key=lambda r: (r["total_cap_yi"] is None, -(r["total_cap_yi"] or 0)))
+    changes = [r["change_pct"] for r in rows if r["change_pct"] is not None]
+    leader = max(rows, key=lambda r: (r["change_pct"] is not None,
+                                      r["change_pct"] if r["change_pct"] is not None else -1e9))
+    board = {
+        "code": bk_code,
+        "name": board_name,
+        "change_pct": round(sum(changes) / len(changes), 2) if changes else None,
+        "up_count": float(len([c for c in changes if c > 0])),
+        "down_count": float(len([c for c in changes if c < 0])),
+        "leader_name": leader["name"],
+        "leader_change_pct": leader["change_pct"],
+    }
+    return board, rows[:top]
+
+
 def fetch_latest_finance(sec_code):
     """按个股拉最新一期财报核心指标（与 fetch_fundamentals 同一数据中心接口）。"""
     upper = sec_code.upper().strip()
@@ -166,7 +239,7 @@ def fetch_latest_finance(sec_code):
     }
 
 
-def render_text(board, rows, quote_time):
+def render_text(board, rows, quote_time, source="eastmoney"):
     lines = []
     up = "-" if board["up_count"] is None else int(board["up_count"])
     down = "-" if board["down_count"] is None else int(board["down_count"])
@@ -214,8 +287,12 @@ def render_text(board, rows, quote_time):
     if missing:
         lines.append("未取到最新财报：{}（数据缺失时不可作为行业龙头依据）".format("、".join(missing)))
         lines.append("")
-    lines.append("数据来源：东方财富数据中心（F10 主要财务指标）+ 板块成分行情；"
-                 "主营收入占比需另用 F10/公告核验，本报告不提供。")
+    lines.append("数据来源：东方财富数据中心（F10 主要财务指标）+ {}；"
+                 "主营收入占比需另用 F10/公告核验，本报告不提供。不构成投资建议。".format(
+                     SOURCE_NAMES[source]))
+    if source == "f10":
+        lines.append("口径：成分股名单与板块行按东财 F10「所属板块」+ 腾讯行情自算"
+                     "（等权涨幅/涨跌家数，非板块指数口径），名单可能少于行情中心成分股全量。")
     return "\n".join(lines)
 
 
@@ -226,6 +303,8 @@ def main():
     ap.add_argument("--top", type=int, default=12,
                     help="按总市值取前 N 名拉财报（默认 12，最多 30；每只一次财报请求）")
     ap.add_argument("--include-st", action="store_true", help="不剔除名称含 ST 的股票")
+    ap.add_argument("--source", choices=sorted(SOURCE_ORDER), default="auto",
+                    help="数据源：auto 先东财、不可用切 F10 备用源（默认）；可强制 eastmoney / f10")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     args = ap.parse_args()
 
@@ -235,31 +314,49 @@ def main():
     if args.top <= 0 or args.top > 30:
         sys.exit("错误：--top 应为 1–30 的整数。")
 
-    board = fetch_board_quote(bk_code)
-    diff = fetch_top_by_cap(bk_code, args.top)
+    board = members = None
+    source = None
+    errors = []
+    for candidate in SOURCE_ORDER[args.source]:
+        try:
+            if candidate == "eastmoney":
+                board = fetch_board_quote(bk_code)
+                diff = fetch_top_by_cap(bk_code, args.top)
+                members = []
+                for raw in diff:
+                    digits = str(raw.get("f12") or "")
+                    name = str(raw.get("f14") or "")
+                    if len(digits) != 6 or not digits.isdigit():
+                        continue
+                    if not args.include_st and "ST" in name.upper():
+                        continue
+                    members.append({
+                        "code": to_sec_code(str(raw.get("f13") or ""), digits),
+                        "name": name,
+                        "price": to_float(raw.get("f2")),
+                        "change_pct": to_float(raw.get("f3")),
+                        "float_cap_yi": round((to_float(raw.get("f21")) or 0) / 1e8, 2),
+                        "total_cap_yi": round((to_float(raw.get("f20")) or 0) / 1e8, 2),
+                    })
+            else:
+                board, members = fetch_f10_board(bk_code, args.top, args.include_st)
+            source = candidate
+            break
+        except Exception as exc:  # noqa: BLE001 主源失败切备用源，两源都失败才报错
+            errors.append("{}：{}".format(SOURCE_NAMES[candidate], exc))
+    if source is None:
+        sys.exit("错误：板块财务排名取数失败（{}）".format("；".join(errors)))
+
     rows = []
-    for raw in diff:
-        digits = str(raw.get("f12") or "")
-        name = str(raw.get("f14") or "")
-        if len(digits) != 6 or not digits.isdigit():
-            continue
-        if not args.include_st and "ST" in name.upper():
-            continue
-        sec_code = to_sec_code(str(raw.get("f13") or ""), digits)
+    for member in members:
+        sec_code = member["code"]
         fin = fetch_latest_finance(sec_code)
         if fin is None:
             fin = {"report": "-", "revenue_yi": None, "revenue_yoy_pct": None,
                    "net_profit_yi": None, "net_profit_yoy_pct": None,
                    "gross_margin_pct": None, "net_margin_pct": None,
                    "debt_ratio_pct": None, "roe_pct": None}
-        row = {
-            "code": sec_code,
-            "name": name,
-            "price": to_float(raw.get("f2")),
-            "change_pct": to_float(raw.get("f3")),
-            "float_cap_yi": round((to_float(raw.get("f21")) or 0) / 1e8, 2),
-            "total_cap_yi": round((to_float(raw.get("f20")) or 0) / 1e8, 2),
-        }
+        row = dict(member)
         row.update(fin)
         rows.append(row)
         if len(rows) >= args.top:
@@ -270,9 +367,11 @@ def main():
         payload = {
             "board": board,
             "top": args.top,
+            "source": source,
+            "source_name": SOURCE_NAMES[source],
             "quote_time": quote_time,
             "rows": rows,
-            "note": "数据来源：东方财富数据中心 + 板块成分行情；最新报告期累计口径",
+            "note": "数据来源：{}；最新报告期累计口径".format(SOURCE_NAMES[source]),
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
@@ -280,7 +379,7 @@ def main():
     if not rows:
         print("未获取到任何成分股数据：请确认 --board 正确，或放宽 --top/--include-st。")
         return
-    print(render_text(board, rows, quote_time))
+    print(render_text(board, rows, quote_time, source=source))
 
 
 if __name__ == "__main__":

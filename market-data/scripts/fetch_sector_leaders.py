@@ -1,29 +1,43 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""A股 板块成分股榜数据报告（东方财富公开接口，无需密钥）。
+"""A股 板块成分股榜数据报告（东方财富为主、F10/腾讯/新浪为备用源，均为公开接口，无需密钥）。
 
 用法:
     python fetch_sector_leaders.py --board BK0882 [--top N] [--sort change|flow|amount|gain5|gain10]
                                      [--min-turnover PCT] [--max-turnover PCT]
                                      [--min-gain PCT] [--max-gain PCT]
                                      [--min-float-cap YI] [--max-float-cap YI]
-                                     [--include-st] [--json]
+                                     [--include-st] [--source auto|eastmoney|f10] [--json]
 
 输出: 指定板块（BK 代码）的成分股行情榜——按所选排序返回 Top N 成分股，含现价、当日涨跌幅、
 近5日/近10日累计涨跌幅、换手、量比、成交额、振幅、PE、流通/总市值、主力净流入、行业，
 并标注“涨停≈”；带换手/涨幅/市值过滤时自动多翻页补齐候选；表头附板块当日/近5日/近10日涨幅、
 领涨股与涨跌家数；不产生缓存文件。
+
+数据源: 东方财富板块行情中心（push2 clist，fs=b:BKxxxx）优先；该接口不可用时自动切换备用源——
+成分股名单取东财 F10「所属板块」（按 BK 代码匹配，代码口径）、个股行情取腾讯快照、
+近5日/近10日涨幅按腾讯日K回算、主力净流入取新浪资金流（主力净额口径）、行业取东财 F10 一级行业。
+备用源下成分股名单是 F10 所属板块口径（可能少于行情中心成分股全量），板块行的等权/合计数字由
+成分股自算（非东财板块指数口径），报告里会标注数据源、口径与未补齐的列。
 """
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import fallback_sources as fb  # noqa: E402 与脚本同目录的备用取数模块
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 HOSTS = [
     "https://push2.eastmoney.com",
@@ -53,6 +67,26 @@ BOARD_FIELDS = (
 STOCK_FIELDS = (
     "f2,f3,f6,f7,f8,f9,f10,f12,f13,f14,f15,f20,f21,f62,f100,f109,f124,f160"
 )
+
+SOURCE_ORDER = {
+    "auto": ["eastmoney", "f10"],
+    "eastmoney": ["eastmoney"],
+    "f10": ["f10"],
+}
+
+SOURCE_NAMES = {
+    "eastmoney": "东方财富板块/行情公开接口（push2 clist）",
+    "f10": "东财 F10 所属板块 + 腾讯行情/日K + 新浪资金流（备用源）",
+}
+
+FALLBACK_ENRICH_CAP = 60    # 备用源下默认只给展示行补 5日/10日/资金/行业
+FALLBACK_ENRICH_MAX = 400   # 按 5日/10日/资金排序时需要全量补数，上限保护
+FALLBACK_WORKERS = 8
+
+ROW_KEYS = ("code", "name", "price", "change_pct", "change5_pct", "change10_pct",
+            "volume_ratio", "turnover_pct", "amount_wan", "amplitude_pct", "pe",
+            "total_cap_yi", "float_cap_yi", "main_inflow_wan", "industry", "ts",
+            "limit_up")
 
 
 def http_get(url):
@@ -216,6 +250,170 @@ def fetch_stocks(bk_code, sort, need):
     return collected
 
 
+def _avg(values):
+    vals = [v for v in values if v is not None]
+    if not vals:
+        return None
+    return round(sum(vals) / len(vals), 2)
+
+
+def fetch_f10_members_quotes(bk_code):
+    """备用源：东财 F10 按 BK 代码取成分股名单，再用腾讯批量快照补行情。"""
+    members = fb.fetch_f10_board_members(bk_code)
+    if not members:
+        raise RuntimeError(
+            "东财 F10 口径下没有 {} 的成分股：请确认 BK 代码来自 fetch_sector_boards 输出。".format(bk_code))
+    board_name = str(members[0].get("BOARD_NAME") or bk_code)
+    ordered_codes = []
+    seen = set()
+    for member in members:
+        code = fb.infer_sec_code(str(member.get("SECURITY_CODE") or ""))
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        ordered_codes.append(code)
+    quotes = fb.fetch_tencent_quotes(ordered_codes)
+    rows = []
+    for code in ordered_codes:
+        quote = quotes.get(code)
+        if not quote:
+            continue
+        digits = code[2:]
+        rows.append({
+            "code": code,
+            "digits": digits,
+            "name": quote.get("name") or "-",
+            "price": quote.get("price"),
+            "change_pct": quote.get("change_pct"),
+            "change5_pct": None,
+            "change10_pct": None,
+            "volume_ratio": quote.get("volume_ratio"),
+            "turnover_pct": quote.get("turnover_pct"),
+            "amount_wan": fmt_wan(quote.get("amount_yuan")),
+            "amount_yuan": quote.get("amount_yuan"),
+            "amplitude_pct": quote.get("amplitude_pct"),
+            "pe": quote.get("pe"),
+            "total_cap_yi": quote.get("total_cap_yi"),
+            "float_cap_yi": quote.get("float_cap_yi"),
+            "main_inflow_wan": "-",
+            "main_yuan": None,
+            "industry": "-",
+            "ts": None,
+            "quote_date": None,
+            "limit_up": is_limit_up(quote.get("price"), quote.get("high"),
+                                    quote.get("change_pct"), digits),
+        })
+    if not rows:
+        raise RuntimeError("腾讯行情未取到 {} 的成分股行情（可能全部停牌）。".format(bk_code))
+    return board_name, rows
+
+
+def enrich_fallback_rows(rows):
+    """备用源补数：近5日/近10日涨幅（腾讯日K）、主力净流入（新浪）、一级行业（东财 F10）。"""
+    pending = [r for r in rows if r["change5_pct"] is None and r["change10_pct"] is None]
+    if pending:
+        codes = [r["code"] for r in pending]
+        with ThreadPoolExecutor(max_workers=FALLBACK_WORKERS) as pool:
+            multiday = list(pool.map(fb.fetch_tencent_multiday_pct, codes))
+        for row, (c5, c10, date) in zip(pending, multiday):
+            row["change5_pct"] = c5
+            row["change10_pct"] = c10
+            row["quote_date"] = date
+    need_flow = [r for r in rows if r["main_yuan"] is None]
+    if need_flow:
+        with ThreadPoolExecutor(max_workers=FALLBACK_WORKERS) as pool:
+            flows = list(pool.map(fb.fetch_sina_stock_flow, [r["code"] for r in need_flow]))
+        for row, (_date, main_yuan, _net) in zip(need_flow, flows):
+            row["main_yuan"] = main_yuan
+            row["main_inflow_wan"] = fmt_wan(main_yuan)
+    missing_industry = [r for r in rows if r["industry"] == "-"]
+    if missing_industry:
+        industries = fb.fetch_f10_industry_map([r["digits"] for r in missing_industry])
+        for row in missing_industry:
+            row["industry"] = industries.get(row["digits"]) or "-"
+
+
+def fallback_board_row(bk_code, board_name, rows):
+    """备用源没有板块指数：板块行按成分股自算（等权涨幅/家数/合计成交额），并标注口径。"""
+    leader = max(rows, key=lambda r: (r["change_pct"] is not None,
+                                      r["change_pct"] if r["change_pct"] is not None else -1e9))
+    full_enrich = all(r["change5_pct"] is not None for r in rows)
+    main_total = (sum(r["main_yuan"] for r in rows)
+                  if rows and all(r["main_yuan"] is not None for r in rows) else None)
+    return {
+        "code": bk_code,
+        "name": board_name,
+        "index": None,
+        "change_pct": _avg([r["change_pct"] for r in rows]),
+        "change5_pct": _avg([r["change5_pct"] for r in rows]) if full_enrich else None,
+        "change10_pct": _avg([r["change10_pct"] for r in rows]) if full_enrich else None,
+        "leader_name": leader["name"],
+        "leader_change_pct": leader["change_pct"],
+        "up_count": float(len([r for r in rows if (r["change_pct"] or 0) > 0])),
+        "down_count": float(len([r for r in rows if (r["change_pct"] or 0) < 0])),
+        "amount_yi": round(sum(r["amount_yuan"] or 0 for r in rows) / 1e8, 2),
+        "turnover_pct": _avg([r["turnover_pct"] for r in rows]),
+        "main_inflow_yi": round(main_total / 1e8, 2) if main_total is not None else None,
+    }
+
+
+def pass_fallback_filters(row, args):
+    if not args.include_st and "ST" in str(row["name"]).upper():
+        return False
+    if args.min_turnover > 0 and (row["turnover_pct"] is None
+                                  or row["turnover_pct"] < args.min_turnover):
+        return False
+    if args.max_turnover > 0 and (row["turnover_pct"] is None
+                                  or row["turnover_pct"] > args.max_turnover):
+        return False
+    if args.min_gain > 0 and (row["change_pct"] is None
+                              or row["change_pct"] < args.min_gain):
+        return False
+    if args.max_gain > 0 and (row["change_pct"] is None
+                              or row["change_pct"] > args.max_gain):
+        return False
+    if args.min_float_cap > 0 and (row["float_cap_yi"] is None
+                                   or row["float_cap_yi"] < args.min_float_cap):
+        return False
+    if args.max_float_cap > 0 and (row["float_cap_yi"] is None
+                                   or row["float_cap_yi"] > args.max_float_cap):
+        return False
+    return True
+
+
+def build_fallback(bk_code, args):
+    """备用源整条链路：F10 成分股 → 腾讯行情 → 过滤/排序 → 补数 → 板块行自算。"""
+    board_name, rows = fetch_f10_members_quotes(bk_code)
+    rows = [r for r in rows if pass_fallback_filters(r, args)]
+    if not rows:
+        raise RuntimeError(
+            "过滤后无成分股：请放宽 --min-turnover / --max-turnover / --min-gain / "
+            "--max-gain / --min-float-cap / --max-float-cap。")
+    sort_key = {"change": "change_pct", "flow": "main_yuan",
+                "amount": "amount_yuan", "gain5": "change5_pct",
+                "gain10": "change10_pct"}[args.sort]
+    sort_needs_all = args.sort in ("flow", "gain5", "gain10")
+    if sort_needs_all:
+        enrich_fallback_rows(rows[:FALLBACK_ENRICH_MAX])
+    rows.sort(key=lambda r: (r[sort_key] is None,
+                             -(r[sort_key] if r[sort_key] is not None else 0)))
+    board = fallback_board_row(bk_code, board_name, rows)
+    shown = rows[:args.top]
+    if not sort_needs_all:
+        enrich_fallback_rows(shown[:FALLBACK_ENRICH_CAP])
+    limitation = ("口径：成分股名单＝东财 F10「所属板块」（BK 代码匹配，可能少于行情中心成分股全量）；"
+                  "板块行的今日涨跌幅/换手为成分股等权、成交额为成分股合计、涨跌家数为成分股统计，"
+                  "不是东财板块指数口径。")
+    missing = [r for r in shown if r["change10_pct"] is None or r["main_yuan"] is None]
+    if args.sort in ("flow", "gain5", "gain10") and len(rows) > FALLBACK_ENRICH_MAX:
+        limitation += "排序按前 {} 只补数结果，其余未参与排序。".format(FALLBACK_ENRICH_MAX)
+    elif missing and len(shown) > FALLBACK_ENRICH_CAP:
+        limitation += "近5日/近10日涨幅与主力净流入只补前 {} 只（其余为 -）。".format(
+            FALLBACK_ENRICH_CAP)
+    quote_date = max((r["quote_date"] for r in shown if r.get("quote_date")), default=None)
+    return board, [dict((k, r.get(k)) for k in ROW_KEYS) for r in shown], limitation, quote_date
+
+
 def normalize_rows(diff, min_turnover, max_turnover, min_gain, max_gain,
                    min_float_cap, max_float_cap, include_st):
     rows = []
@@ -293,25 +491,35 @@ def _range_desc(label, lo, hi, unit):
     return "{label} ≤{hi}{unit}".format(label=label, hi=fmt_num(hi), unit=unit)
 
 
-def render_text(board, rows, sort, top, quote_time, filter_text):
+def render_text(board, rows, sort, top, quote_time, filter_text,
+                source="eastmoney", limitation=None):
     lines = []
     up = "-" if board["up_count"] is None else int(board["up_count"])
     down = "-" if board["down_count"] is None else int(board["down_count"])
+
+    def pct(value):
+        return "未获取" if value is None else "{}%".format(fmt_num(value))
+
+    def yi(value):
+        return "未获取" if value is None else "{}亿".format(fmt_num(value, 2))
+
     lines.append("# 板块成分股榜（{name} {code} · 排序：{sort} · Top {top} · 数据时间 {time}）".format(
         name=board["name"], code=board["code"], sort=SORT_NAMES[sort],
         top=top, time=quote_time))
     lines.append("")
-    lines.append("板块：今日 {chg}% · 近5日 {c5}% · 近10日 {c10}% · 领涨股 {lead}（{lchg}%）"
-                 " · 上涨 {up} / 下跌 {down} · 成交额 {amt}亿 · 主力净流入 {flow}亿".format(
-                     chg=fmt_num(board["change_pct"]),
-                     c5=fmt_num(board["change5_pct"]),
-                     c10=fmt_num(board["change10_pct"]),
+    lines.append("板块：今日 {chg} · 近5日 {c5} · 近10日 {c10} · 领涨股 {lead}（{lchg}%）"
+                 " · 上涨 {up} / 下跌 {down} · 成交额 {amt} · 主力净流入 {flow}".format(
+                     chg=pct(board["change_pct"]),
+                     c5=pct(board["change5_pct"]),
+                     c10=pct(board["change10_pct"]),
                      lead=board["leader_name"],
                      lchg=fmt_num(board["leader_change_pct"]),
-                     up=up, down=down, amt=fmt_num(board["amount_yi"], 2),
-                     flow=fmt_num(board["main_inflow_yi"], 2)))
+                     up=up, down=down, amt=yi(board["amount_yi"]),
+                     flow=yi(board["main_inflow_yi"])))
     lines.append("")
     lines.append("过滤：{}。近5日/近10日涨跌幅为东财口径（含当日累计）。".format(filter_text))
+    if limitation:
+        lines.append(limitation)
     if len(rows) < top:
         lines.append("注：过滤后实际返回 {n} 只（请求 {top} 只）；需要更多候选请调大 --top 或放宽过滤。".format(
             n=len(rows), top=top))
@@ -334,8 +542,8 @@ def render_text(board, rows, sort, top, quote_time, filter_text):
                          tc=fmt_num(r["total_cap_yi"]), flow=r["main_inflow_wan"],
                          ind=r["industry"], note=note))
     lines.append("")
-    lines.append("数据来源：东方财富板块/行情公开接口；行情时间为当日实时/延迟数据，"
-                 "精确到分钟级，使用时以交易所数据为准。")
+    lines.append("数据来源：{}；行情时间为当日实时/延迟数据或最近交易日收盘数据，"
+                 "使用时以交易所数据为准。不构成投资建议。".format(SOURCE_NAMES[source]))
     return "\n".join(lines)
 
 
@@ -359,6 +567,8 @@ def main():
     ap.add_argument("--max-float-cap", type=float, default=0,
                     help="最高流通市值（亿）过滤，如 200（默认不过滤）")
     ap.add_argument("--include-st", action="store_true", help="不剔除名称含 ST 的股票")
+    ap.add_argument("--source", choices=sorted(SOURCE_ORDER), default="auto",
+                    help="数据源：auto 先东财、不可用切 F10 备用源（默认）；可强制 eastmoney / f10")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     args = ap.parse_args()
 
@@ -368,16 +578,34 @@ def main():
     if args.top <= 0:
         sys.exit("错误：--top 必须为正整数。")
 
-    board = fetch_board_quote(bk_code)
-    has_filter = bool(args.min_turnover or args.max_turnover or args.min_gain
-                      or args.max_gain or args.min_float_cap or args.max_float_cap)
-    raw_need = args.top if not has_filter else max(args.top * 5, 300)
-    diff = fetch_stocks(bk_code, args.sort, raw_need)
-    rows = normalize_rows(
-        diff, args.min_turnover, args.max_turnover, args.min_gain, args.max_gain,
-        args.min_float_cap, args.max_float_cap, args.include_st)[:args.top]
-    ts = next((r["ts"] for r in rows if r["ts"]), time.time())
-    quote_time = fmt_dt(ts)
+    board = rows = limitation = None
+    quote_time = None
+    source = None
+    errors = []
+    for candidate in SOURCE_ORDER[args.source]:
+        try:
+            if candidate == "eastmoney":
+                board = fetch_board_quote(bk_code)
+                has_filter = bool(args.min_turnover or args.max_turnover or args.min_gain
+                                  or args.max_gain or args.min_float_cap or args.max_float_cap)
+                raw_need = args.top if not has_filter else max(args.top * 5, 300)
+                diff = fetch_stocks(bk_code, args.sort, raw_need)
+                rows = normalize_rows(
+                    diff, args.min_turnover, args.max_turnover, args.min_gain,
+                    args.max_gain, args.min_float_cap, args.max_float_cap,
+                    args.include_st)[:args.top]
+                ts = next((r["ts"] for r in rows if r["ts"]), time.time())
+                quote_time = fmt_dt(ts)
+                limitation = None
+            else:
+                board, rows, limitation, quote_date = build_fallback(bk_code, args)
+                quote_time = quote_date or datetime.now().strftime("%Y-%m-%d")
+            source = candidate
+            break
+        except Exception as exc:  # noqa: BLE001 主源失败切备用源，两源都失败才报错
+            errors.append("{}：{}".format(SOURCE_NAMES[candidate], exc))
+    if source is None:
+        sys.exit("错误：板块成分股榜取数失败（{}）".format("；".join(errors)))
 
     if args.json:
         payload = {
@@ -385,9 +613,14 @@ def main():
             "sort": args.sort,
             "sort_name": SORT_NAMES[args.sort],
             "top": args.top,
+            "source": source,
+            "source_name": SOURCE_NAMES[source],
             "quote_time": quote_time,
             "rows": rows,
-            "note": "数据来源：东方财富板块/行情公开接口；近5日/近10日涨跌幅为东财口径",
+            "note": ("数据来源：{}；近5日/近10日涨跌幅为东财口径".format(SOURCE_NAMES[source])
+                     if source == "eastmoney" else
+                     "数据来源：{}；备用源口径见 limitation".format(SOURCE_NAMES[source])),
+            "limitation": limitation,
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
@@ -401,7 +634,8 @@ def main():
                       filter_desc(args.min_turnover, args.max_turnover,
                                   args.min_gain, args.max_gain,
                                   args.min_float_cap, args.max_float_cap,
-                                  args.include_st)))
+                                  args.include_st),
+                      source=source, limitation=limitation))
 
 
 if __name__ == "__main__":

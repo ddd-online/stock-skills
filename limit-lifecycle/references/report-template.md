@@ -7,7 +7,7 @@
 - 先决条件：必须先有 $limit-find 的当日报告（report/涨停板复盘/YYYY-MM-DD.md）；没有就先执行 $limit-find，报告里写清所读报告的日期与份数。
 - 数据来源：主线板块、最高板与高标梯队、昨日涨停今日表现、开盘与尾盘分类、分板块晋级与炸板统计、阵型判定取自 limit-find 报告；板块换手/成交额、板块内个股换手与封板资金、板块成分股榜经 $market-data 补取（fetch_sector_boards / fetch_limit_up --json / fetch_sector_leaders）。
 - 板块权限：只读 ACCOUNT.md「板块权限」，报告注明来源与因权限剔除的只数；未提供时按保守默认（仅主板可交易、ST 不交易）并标注“权限未提供，按默认处理”。
-- 板块归属只按代码求交：用板块 BK 代码取**全量**成分股代码集合（fetch_sector_leaders --board BKxxxx --top 300，默认 30 只不够），再与涨停池/炸板池/跌停池/昨日涨停股按代码求交，不用行业名匹配（涨停池的行业名是 4 字截断名，会把「汽车零部」错配到「汽车」）。
+- 板块归属只按代码求交：用板块 BK 代码取**全量**成分股代码集合（fetch_sector_leaders --board BKxxxx --top 300，默认 30 只不够），再与涨停池/炸板池/跌停池/昨日涨停股按代码求交，不用行业名匹配（涨停池的行业名是 4 字截断名，会把「汽车零部」错配到「汽车」）。东财行情中心接口不可用时该脚本自动切备用源（成分股名单取东财 F10「所属板块」，仍按 BK 代码匹配，F10 名单可能少于行情中心全量）——报告必须写明成分股数据源与口径，不得把备用源名单当成行情中心全量。
 - `{{...}}` 为待填字段，一律替换为真实数字或「未获取」；接口拿不到就写「未获取」，不填 0、不脑补。
 - 三检查表铁律：每个「正」「弱」「负」都要指向一个可比数字（两个时点 + 数值，资金格还要写比例）；**指不出来就写「未知」，未知既不算正也不算负**。不得用「未获取」凑出「三格全正」——单日的主力净流入只是状态，方向要两个时点。第三格的今日值先跑 fetch_sector_boards.py 取（东财不可用时脚本自动切腾讯备用源并标注数据源），两源都失败才写「未获取」；今日与基准日必须同源同口径，跨源不得直接算比例（写「跨源不可比」并记「未知」）。
 - 当天没有内容的小节保留标题并写「无」或「不适用」；某个数字未获取时写进阶段判断理由，不新增标签。
@@ -24,7 +24,7 @@
 ## 数据来源与口径
 
 - limit-find 报告：{{N}} 份（{{起始日期}} ~ {{数据日期}}）；当日报告为 report/涨停板复盘/{{YYYY-MM-DD}}.md
-- $market-data 补取：{{板块行情榜（--type industry/concept --sort change/flow/gain5）/ 涨停池明细 fetch_limit_up.py --json / 板块成分股榜 fetch_sector_leaders.py --board BKxxxx --top 300（全量）}}
+- $market-data 补取：{{板块行情榜（--type industry/concept --sort change/flow/gain5）/ 涨停池明细 fetch_limit_up.py --json / 板块成分股榜 fetch_sector_leaders.py --board BKxxxx --top 300（全量）/ 个股资金 fetch_capital_flow.py}}（东财接口不可用时脚本各自自动切备用源并标注数据源与口径）
 - 板块归属口径：按 BK 代码取成分股集合后与涨停池/昨日涨停股按**代码求交**（行业名只作参考，不做名称匹配）
 - 板块权限：{{ACCOUNT.md「板块权限」/ 权限未提供，按默认处理（仅主板可交易、ST 不交易）}}；因权限剔除 {{n}} 只
 - 阈值口径：{{本 SKILL 默认口径（references/limit-lifecycle-cheatsheet.md）/ 用户请求中说明的个人阈值}}
@@ -59,7 +59,7 @@
 
 - 五个字段与顺序固定：① 首封时间 ② 连板高度 ③ 换手与量能 ④ 资金 ⑤ 炸板后的回封速度；**是排序用的，不是打分表**——先按 1（谁先动）、再按 2（谁在上面），3–5 用来确认质量。字段 1 与 2 冲突（先动的不是最高板）时两只都留在表里，冲突写进判定栏。
 - 角色只在这几档里取：龙头（已确认）/ 龙头候选（首选）/ 龙头候选 / 连板核心 / 首板 / 先动股 / 跟随 / 伪龙头（类型）；同一板块只保留排序第一的「龙头候选（首选）」。
-- 数字取 limit-find 报告「连板高度与最高板」高标梯队表与 --json 的 zt_rows（first_seal / last_seal / board_count / turnover_pct / seal_fund_yi / break_count）；个股主力净流入用 fetch_capital_flow 或 fetch_sector_leaders（涨停股封板后常返回 0 或很小，属正常，改用封板资金与成交额作量能证据并注明）。
+- 数字取 limit-find 报告「连板高度与最高板」高标梯队表与 --json 的 zt_rows（first_seal / last_seal / board_count / turnover_pct / seal_fund_yi / break_count）；个股主力净流入用 fetch_capital_flow 或 fetch_sector_leaders（涨停股封板后常返回 0 或很小，属正常，改用封板资金与成交额作量能证据并注明）；东财接口不可用时两者自动切备用源——新浪资金流是主力净额（大单+超大单）口径，与东财口径不可混比，报告注明数据源。
 
 ### 伪龙头与降级
 
@@ -195,10 +195,10 @@
 |---|---|
 | 数据来源与口径 | 本技能读到的 limit-find 报告清单 + 本次 $market-data 调用 + ACCOUNT.md「板块权限」 |
 | 主线板块生命周期表 | limit-find 报告「当日主线板块」「连板高度与最高板」「分板块晋级与炸板统计」+ fetch_sector_boards.py + fetch_limit_up.py --json |
-| 板块龙头认定 | 「连板高度与最高板」高标梯队表 + fetch_limit_up.py --json 的 zt_rows（first_seal / last_seal / board_count / turnover_pct / seal_fund_yi / break_count）与 zb_all_rows（收盘未封住）+ 板块行主力净流入 + fetch_capital_flow / fetch_sector_leaders（个股资金） |
+| 板块龙头认定 | 「连板高度与最高板」高标梯队表 + fetch_limit_up.py --json 的 zt_rows（first_seal / last_seal / board_count / turnover_pct / seal_fund_yi / break_count）与 zb_all_rows（收盘未封住）+ 板块行主力净流入 + fetch_capital_flow / fetch_sector_leaders（个股资金，东财不可用时自动切新浪资金流口径并在报告注明） |
 | 阶段演变时间线 | report/涨停板复盘/ 下当日 + 之前四份报告的「当日主线板块」与「分板块晋级与炸板统计」 |
 | 主线健康度三检查表 | 「连板高度与最高板」+「昨日涨停今日表现」+「分板块晋级与炸板统计」+ 板块行主力净流入（今日，取自 fetch_sector_boards.py；东财接口不可用时脚本自动切腾讯备用源并标注数据源与口径）；第三格的基准日数值取阶段演变时间线（更早 limit-find 报告同一板块行的数值，缺失时取更早的最近一天并注明），与今日不同源时记「未知」并注明「跨源不可比」 |
 | 板块内分化与强弱 | limit-find 报告「昨日涨停股今日开盘与尾盘分类」 |
-| 推荐题材板块与板块内股票 | 上面各表 + fetch_sector_leaders.py --board BKxxxx --top 300（全量成分股，取涨停股与跟随候选）+ ACCOUNT.md「板块权限」 |
+| 推荐题材板块与板块内股票 | 上面各表 + fetch_sector_leaders.py --board BKxxxx --top 300（全量成分股，取涨停股与跟随候选；东财不可用时切东财 F10 所属板块口径）+ ACCOUNT.md「板块权限」 |
 | 排除与不推荐清单 | 阶段判定结果 + 权限过滤结果 + 样本份数 |
 | 阶段、龙头认定与三检查点口径 | references/limit-lifecycle-cheatsheet.md（判定规则，不产数字） |

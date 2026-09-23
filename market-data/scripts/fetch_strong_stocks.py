@@ -1,28 +1,41 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""A股 强势股榜单数据报告（东方财富公开接口，无需密钥）。
+"""A股 强势股榜单数据报告（东方财富为主、新浪/腾讯为备用源，均为公开接口，无需密钥）。
 
 用法:
     python fetch_strong_stocks.py [--top N] [--board all|hs|main|cyb|kcb|bj]
                                   [--min-turnover PCT] [--max-turnover PCT]
                                   [--min-gain PCT] [--max-gain PCT]
-                                  [--include-st] [--json]
+                                  [--include-st] [--source auto|eastmoney|sina] [--json]
 
 输出: 强势股榜单报告——按涨跌幅从高到低返回 Top N 候选；指定涨幅区间
 （--min-gain/--max-gain，如 3–5%）时自动翻页拉全区间再过滤（接口单页上限 100）
 （代码/名称/现价/涨跌幅/量比/换手/成交额/振幅/PE/主力净流入/行业，标注“涨停≈”），
 默认剔除 ST；不产生缓存文件。
+
+数据源: 东方财富行情中心（push2 clist）优先；该接口不可用时自动切换备用源——涨跌幅榜取新浪
+行情（Market_Center.getHQNodeData，按当日涨跌幅降序）、量比取腾讯快照、主力净流入取新浪
+个股资金流（主力净额口径）、行业取东财 F10 一级行业；备用源下量比/资金/行业只补展示行，
+报告里会标注数据源与口径。
 """
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import fallback_sources as fb  # noqa: E402 与脚本同目录的备用取数模块
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 HOSTS = [
     "https://push2.eastmoney.com",
@@ -53,6 +66,34 @@ BOARD_NAMES = {
     "kcb": "科创板",
     "bj": "北交所",
 }
+
+# 新浪排行榜节点（hs_a 含沪深京；cyb/kcb/hs_bjs 为分市场节点）
+SINA_NODES = {
+    "all": "hs_a",
+    "hs": "hs_a",
+    "main": "hs_a",
+    "cyb": "cyb",
+    "kcb": "kcb",
+    "bj": "hs_bjs",
+}
+
+SOURCE_ORDER = {
+    "auto": ["eastmoney", "sina"],
+    "eastmoney": ["eastmoney"],
+    "sina": ["sina"],
+}
+
+SOURCE_NAMES = {
+    "eastmoney": "东方财富行情中心公开接口（push2 clist）",
+    "sina": "新浪行情榜 + 腾讯行情 + 新浪资金流 + 东财 F10（备用源）",
+}
+
+FALLBACK_ENRICH_CAP = 60    # 备用源下量比/资金/行业只补展示行
+FALLBACK_WORKERS = 8
+
+ROW_KEYS = ("code", "name", "price", "change_pct", "volume_ratio", "turnover_pct",
+            "amount_wan", "amplitude_pct", "pe", "total_cap", "main_inflow_wan",
+            "industry", "ts", "limit_up")
 
 
 def http_get(url):
@@ -213,6 +254,151 @@ def normalize_rows(diff, min_turnover, max_turnover, min_gain, max_gain, include
     return rows
 
 
+SINA_MAX_PAGES = 12
+
+
+def format_dt(dt):
+    """腾讯快照时间 20260923161452 → 2026-09-23 16:14:52。"""
+    if not dt or len(str(dt)) < 14:
+        return str(dt or "-")
+    dt = str(dt)
+    return "{}-{}-{} {}:{}:{}".format(dt[0:4], dt[4:6], dt[6:8],
+                                      dt[8:10], dt[10:12], dt[12:14])
+
+
+def sina_board_match(board, digits):
+    """新浪节点已限定市场，沪深/主板再按代码前缀过滤（hs_a 含北交所）。"""
+    if len(digits) != 6 or not digits.isdigit():
+        return False
+    if board == "hs":
+        return not fb.is_bj_code(digits)
+    if board == "main":
+        return (digits[:3] in ("600", "601", "603", "605")
+                or digits[:3] in ("000", "001", "002", "003"))
+    return True
+
+
+def normalize_sina_row(raw, args):
+    digits = str(raw.get("code") or "")
+    if not sina_board_match(args.board, digits):
+        return None
+    name = str(raw.get("name") or "")
+    if not args.include_st and "ST" in name.upper():
+        return None
+    turnover = to_float(raw.get("turnoverratio"))
+    if args.min_turnover > 0 and (turnover is None or turnover < args.min_turnover):
+        return None
+    if args.max_turnover > 0 and (turnover is None or turnover > args.max_turnover):
+        return None
+    change_pct = to_float(raw.get("changepercent"))
+    if args.min_gain > 0 and (change_pct is None or change_pct < args.min_gain):
+        return None
+    if args.max_gain > 0 and (change_pct is None or change_pct > args.max_gain):
+        return None
+    code = str(raw.get("symbol") or "") or fb.infer_sec_code(digits)
+    if not code:
+        return None
+    price = to_float(raw.get("trade"))
+    high = to_float(raw.get("high"))
+    low = to_float(raw.get("low"))
+    prev_close = to_float(raw.get("settlement"))
+    amplitude = None
+    if high is not None and low is not None and prev_close:
+        amplitude = round((high - low) / prev_close * 100, 2)
+    total_cap = to_float(raw.get("mktcap"))
+    return {
+        "code": code,
+        "digits": digits,
+        "name": name,
+        "price": price,
+        "change_pct": change_pct,
+        "volume_ratio": None,
+        "turnover_pct": turnover,
+        "amount_wan": fmt_wan(to_float(raw.get("amount"))),
+        "amplitude_pct": amplitude,
+        "pe": to_float(raw.get("per")),
+        "total_cap": fmt_yi(total_cap * 1e4) if total_cap is not None else "-",
+        "main_inflow_wan": "-",
+        "main_yuan": None,
+        "industry": "-",
+        "ts": None,
+        "quote_dt": None,
+        "limit_up": is_limit_up(price, high, change_pct, digits),
+    }
+
+
+def fetch_sina_candidates(args):
+    """新浪排行榜翻页取候选：够 --top 的 3 倍或跌破 --min-gain 即停。"""
+    node = SINA_NODES[args.board]
+    rows = []
+    need = max(args.top * 3, 100)
+    for page_no in range(1, SINA_MAX_PAGES + 1):
+        page = fb.fetch_sina_rank(node, page=page_no)
+        if not page:
+            break
+        for raw in page:
+            row = normalize_sina_row(raw, args)
+            if row is not None:
+                rows.append(row)
+        if len(rows) >= need:
+            break
+        last_pct = to_float(page[-1].get("changepercent"))
+        if args.min_gain > 0 and last_pct is not None and last_pct < args.min_gain:
+            break
+    return rows
+
+
+def enrich_fallback_rows(rows):
+    """备用源补数：腾讯快照（量比/成交额/市值/涨停核对）、新浪资金流、东财 F10 一级行业。"""
+    if not rows:
+        return
+    quotes = fb.fetch_tencent_quotes([r["code"] for r in rows])
+    for row in rows:
+        quote = quotes.get(row["code"])
+        if not quote:
+            continue
+        if quote.get("name"):
+            row["name"] = quote["name"]  # 名称以腾讯为准，与其他 market-data 报告一致
+        for key in ("price", "change_pct", "turnover_pct", "amplitude_pct", "pe"):
+            if quote.get(key) is not None:
+                row[key] = quote[key]
+        if quote.get("amount_yuan") is not None:
+            row["amount_wan"] = fmt_wan(quote["amount_yuan"])
+        if quote.get("total_cap_yi") is not None:
+            row["total_cap"] = fmt_yi(quote["total_cap_yi"] * 1e8)
+        row["volume_ratio"] = quote.get("volume_ratio")
+        row["quote_dt"] = quote.get("datetime")
+        row["limit_up"] = is_limit_up(quote.get("price"), quote.get("high"),
+                                      quote.get("change_pct"), row["digits"])
+    with ThreadPoolExecutor(max_workers=FALLBACK_WORKERS) as pool:
+        flows = list(pool.map(fb.fetch_sina_stock_flow, [r["code"] for r in rows]))
+    for row, (_date, main_yuan, _net) in zip(rows, flows):
+        row["main_yuan"] = main_yuan
+        row["main_inflow_wan"] = fmt_wan(main_yuan)
+    industries = fb.fetch_f10_industry_map([r["digits"] for r in rows])
+    for row in rows:
+        row["industry"] = industries.get(row["digits"]) or "-"
+
+
+def build_fallback(args):
+    """备用源整条链路：新浪涨跌幅榜 → 过滤/排序 → 补数 → 输出。"""
+    rows = fetch_sina_candidates(args)
+    if not rows:
+        raise RuntimeError("新浪行情榜没有符合条件的候选：请放宽 --min-turnover / "
+                           "--max-turnover / --min-gain / --max-gain 或换 --board。")
+    rows.sort(key=lambda r: (r["change_pct"] is None, -(r["change_pct"] or 0)))
+    shown = rows[:args.top]
+    enrich_fallback_rows(shown[:FALLBACK_ENRICH_CAP])
+    dt = next((r["quote_dt"] for r in shown if r.get("quote_dt")), None)
+    quote_time = format_dt(dt) if dt else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    limitation = ("口径：涨跌幅榜取新浪行情（按当日涨跌幅降序）；量比取自腾讯快照；"
+                  "主力净流入为新浪个股资金流口径（大单+超大单，与东财口径不一致）；"
+                  "行业为东财 F10 一级行业；量比/资金/行业只补前 {} 只，其余行这三列为 -。".format(
+                      min(FALLBACK_ENRICH_CAP, len(shown))))
+    return ([dict((k, r.get(k)) for k in ROW_KEYS) for r in shown],
+            limitation, quote_time)
+
+
 def turnover_desc(min_turnover, max_turnover):
     if min_turnover > 0 and max_turnover > 0:
         return "{}% < 换手 < {}%".format(fmt_num(min_turnover), fmt_num(max_turnover))
@@ -234,7 +420,8 @@ def gain_desc(min_gain, max_gain):
 
 
 def render_text(rows, board, top, min_turnover, max_turnover,
-                min_gain, max_gain, include_st, quote_time):
+                min_gain, max_gain, include_st, quote_time,
+                source="eastmoney", limitation=None):
     lines = []
     lines.append("# 强势股榜（Top {top} · {board} · 数据时间 {time}）".format(
         top=top, board=BOARD_NAMES[board], time=quote_time))
@@ -244,6 +431,8 @@ def render_text(rows, board, top, min_turnover, max_turnover,
                  "数据未经验证，仅作强势股初筛。".format(
                      tdesc=turnover_desc(min_turnover, max_turnover),
                      gdesc=gain_desc(min_gain, max_gain)))
+    if limitation:
+        lines.append(limitation)
     if len(rows) < top:
         lines.append("注：过滤后实际返回 {n} 只（请求 {top} 只）；"
                      "需要更多候选请调大 --top。".format(n=len(rows), top=top))
@@ -263,8 +452,8 @@ def render_text(rows, board, top, min_turnover, max_turnover,
                          pe=fmt_num(r["pe"]), flow=r["main_inflow_wan"],
                          ind=r["industry"], note=note))
     lines.append("")
-    lines.append("数据来源：东方财富行情中心公开接口；行情时间为当日实时/延迟数据，"
-                 "精确到分钟级，使用时以交易所数据为准。")
+    lines.append("数据来源：{}；行情时间为当日实时/延迟数据，精确到分钟级，"
+                 "使用时以交易所数据为准。不构成投资建议。".format(SOURCE_NAMES[source]))
     return "\n".join(lines)
 
 
@@ -282,14 +471,36 @@ def main():
     parser.add_argument("--max-gain", type=float, default=0,
                         help="最高涨幅过滤，如 5 表示 ≤5%%（默认不过滤）")
     parser.add_argument("--include-st", action="store_true", help="不剔除名称含 ST 的股票")
+    parser.add_argument("--source", choices=sorted(SOURCE_ORDER), default="auto",
+                        help="数据源：auto 先东财、不可用切新浪备用源（默认）；可强制 eastmoney / sina")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     args = parser.parse_args()
 
-    diff = fetch_raw(args.board, args.top, args.min_gain, args.max_gain)
-    rows = normalize_rows(diff, args.min_turnover, args.max_turnover,
-                          args.min_gain, args.max_gain, args.include_st)[:args.top]
-    ts = next((r["ts"] for r in rows if r["ts"]), time.time())
-    quote_time = fmt_dt(ts)
+    if args.top <= 0:
+        sys.exit("错误：--top 必须为正整数。")
+
+    rows = limitation = None
+    quote_time = None
+    source = None
+    errors = []
+    for candidate in SOURCE_ORDER[args.source]:
+        try:
+            if candidate == "eastmoney":
+                diff = fetch_raw(args.board, args.top, args.min_gain, args.max_gain)
+                rows = normalize_rows(diff, args.min_turnover, args.max_turnover,
+                                      args.min_gain, args.max_gain,
+                                      args.include_st)[:args.top]
+                ts = next((r["ts"] for r in rows if r["ts"]), time.time())
+                quote_time = fmt_dt(ts)
+                limitation = None
+            else:
+                rows, limitation, quote_time = build_fallback(args)
+            source = candidate
+            break
+        except Exception as exc:  # noqa: BLE001 主源失败切备用源，两源都失败才报错
+            errors.append("{}：{}".format(SOURCE_NAMES[candidate], exc))
+    if source is None:
+        sys.exit("错误：强势股榜取数失败（{}）".format("；".join(errors)))
 
     if args.json:
         payload = {
@@ -301,8 +512,11 @@ def main():
             "min_gain": args.min_gain,
             "max_gain": args.max_gain,
             "include_st": args.include_st,
+            "source": source,
+            "source_name": SOURCE_NAMES[source],
             "quote_time": quote_time,
             "rows": rows,
+            "limitation": limitation,
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
@@ -313,7 +527,8 @@ def main():
         return
     print(render_text(rows, args.board, args.top, args.min_turnover,
                       args.max_turnover, args.min_gain, args.max_gain,
-                      args.include_st, quote_time))
+                      args.include_st, quote_time,
+                      source=source, limitation=limitation))
 
 
 if __name__ == "__main__":

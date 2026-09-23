@@ -1,22 +1,44 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""个股资金流向报告（东方财富公开接口，无需密钥）。
+"""个股资金流向报告（东方财富为主、新浪为备用源，均为公开接口，无需密钥）。
 
 用法:
-    python fetch_capital_flow.py <代码> [--json]
+    python fetch_capital_flow.py <代码> [--source auto|eastmoney|sina] [--json]
 
 代码: 与 fetch_quote.py 相同，如 sh600410 / sz002491 / bj920002。
 输出: 资金流向报告——最新交易日主力/超大单/大单/中单/小单净流入 + 近5日主力净流入趋势，
 配合量价判断放量是流入还是出货；不产生缓存文件。
+
+数据源: 东方财富资金流接口优先；该接口不可用时自动切新浪个股资金流
+（MoneyFlow.ssl_qsfx_zjlrqs，主力净额＝大单+超大单口径）——备用源给主力净额、主动净额与
+近5日主力净额，超大单/大单/中单/小单拆分标「未获取」，报告里标注实际数据源与口径差异。
 """
 
 import argparse
 import json
+import os
 import sys
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import fallback_sources as fb  # noqa: E402 与脚本同目录的备用取数模块
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+SOURCE_ORDER = {
+    "auto": ["eastmoney", "sina"],
+    "eastmoney": ["eastmoney"],
+    "sina": ["sina"],
+}
+
+SOURCE_NAMES = {
+    "eastmoney": "东方财富资金流公开接口（超大单/大单/中单/小单拆分）",
+    "sina": "新浪个股资金流（主力净额＝大单+超大单；拆分未获取）",
+}
 
 # 东方财富 secid：沪市=1，深市/北交所=0（与 fetch_quote.py 一致）
 MARKET = {"sh": "1", "sz": "0", "bj": "0"}
@@ -114,17 +136,51 @@ def fetch(code):
     }
 
 
-def build_payload(code):
-    result = fetch(code)
-    if result["latest_day"] is None and not result["main_5d"]:
-        sys.exit("错误：未获取到资金流向数据，请稍后重试。")
+def fetch_sina(code):
+    """备用源：新浪个股资金流（主力净额＝大单+超大单），给主力净额与近5日历史。"""
+    history = fb.fetch_sina_stock_flow_history(code, days=6)
+    if not history:
+        raise RuntimeError("新浪资金流未返回该股数据")
+    latest = history[0]
+    name = None
+    quotes = fb.fetch_tencent_quotes([code])
+    if code in quotes:
+        name = quotes[code].get("name")
     return {
-        "code": code,
-        "name": result["name"],
-        "latest_day": result["latest_day"],
-        "main_5d": result["main_5d"],
-        "note": "数据来源：东方财富资金流公开接口（单位：元）",
+        "name": name,
+        "latest_day": {
+            "date": latest["date"],
+            "main": latest["main_yuan"],
+            "small": None,
+            "medium": None,
+            "large": None,
+            "super_large": None,
+            "net": latest["net_yuan"],
+        },
+        "main_5d": [{"date": row["date"], "main": row["main_yuan"]}
+                    for row in reversed(history[:5])],
     }
+
+
+def build_payload(code, source="auto"):
+    errors = []
+    for candidate in SOURCE_ORDER[source]:
+        try:
+            result = fetch(code) if candidate == "eastmoney" else fetch_sina(code)
+            if result.get("latest_day") is None and not result.get("main_5d"):
+                raise RuntimeError("接口无数据")
+            return {
+                "code": code,
+                "name": result.get("name"),
+                "latest_day": result.get("latest_day"),
+                "main_5d": result.get("main_5d") or [],
+                "source": candidate,
+                "source_name": SOURCE_NAMES[candidate],
+                "note": "数据来源：{}（单位：元）".format(SOURCE_NAMES[candidate]),
+            }
+        except Exception as exc:  # noqa: BLE001 主源失败切备用源，两源都失败才报错
+            errors.append("{}：{}".format(SOURCE_NAMES[candidate], exc))
+    raise RuntimeError("；".join(errors))
 
 
 def print_text(code, payload):
@@ -135,10 +191,16 @@ def print_text(code, payload):
     if latest:
         print("最新交易日 {}：".format(latest["date"]))
         print("  主力净流入 {:>12} 万元".format(fmt_wan(latest["main"])))
-        print("  超大单净流入 {:>10} 万元    大单净流入 {:>10} 万元".format(
-            fmt_wan(latest["super_large"]), fmt_wan(latest["large"])))
-        print("  中单净流入 {:>10} 万元    小单净流入 {:>10} 万元".format(
-            fmt_wan(latest["medium"]), fmt_wan(latest["small"])))
+        if latest.get("net") is not None:
+            print("  主动净额   {:>12} 万元".format(fmt_wan(latest["net"])))
+        if latest.get("super_large") is None and latest.get("large") is None:
+            print("  超大单/大单/中单/小单拆分：未获取（{}）".format(
+                payload.get("source_name") or "备用源"))
+        else:
+            print("  超大单净流入 {:>10} 万元    大单净流入 {:>10} 万元".format(
+                fmt_wan(latest["super_large"]), fmt_wan(latest["large"])))
+            print("  中单净流入 {:>10} 万元    小单净流入 {:>10} 万元".format(
+                fmt_wan(latest["medium"]), fmt_wan(latest["small"])))
     else:
         print("最新交易日明细：无数据")
     print("-" * 84)
@@ -153,12 +215,15 @@ def print_text(code, payload):
     else:
         print("近5日主力净流入：无数据")
     print("=" * 84)
-    print("注：数据来源为东方财富资金流公开接口；单位万元，正=净流入，负=净流出。")
+    print("注：数据来源为{}；单位万元，正=净流入，负=净流出。不构成投资建议。".format(
+        payload.get("source_name") or "-"))
 
 
 def main():
     ap = argparse.ArgumentParser(description="个股资金流向报告")
     ap.add_argument("code", help="如 sh600410 / sz002491")
+    ap.add_argument("--source", choices=sorted(SOURCE_ORDER), default="auto",
+                    help="数据源：auto 先东财、不可用切新浪（默认）；可强制 eastmoney / sina")
     ap.add_argument("--json", action="store_true", help="输出JSON")
     args = ap.parse_args()
 
@@ -167,9 +232,9 @@ def main():
         sys.exit("错误：代码格式应为 sh/sz/bj + 6位数字，如 sh600410。")
 
     try:
-        payload = build_payload(code)
+        payload = build_payload(code, args.source)
     except Exception as exc:
-        sys.exit("错误：网络请求失败（{}）。请稍后重试。".format(exc))
+        sys.exit("错误：资金流向取数失败（{}）。".format(exc))
 
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
