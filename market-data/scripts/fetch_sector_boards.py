@@ -37,6 +37,7 @@ USER_AGENT = "Mozilla/5.0"
 EASTMONEY_HOSTS = [
     "https://push2.eastmoney.com",
     "https://push2delay.eastmoney.com",
+    "https://push2test.eastmoney.com",  # 本地定制（2026-10-09）：主节点被限流时的可用镜像
 ]
 EASTMONEY_REFERER = "https://data.eastmoney.com/"
 EASTMONEY_PAGE_SIZE = 100
@@ -119,12 +120,28 @@ SOURCE_ORDER = {
 }
 
 
+# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
+# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
+_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+_DIRECT_FAILS = [0]
+
+
+def _open(req, timeout):
+    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
+    if _DIRECT_FAILS[0] < 3:
+        try:
+            return _DIRECT_OPENER.open(req, timeout=timeout)
+        except Exception:  # noqa: BLE001 直连失败时累计并回退
+            _DIRECT_FAILS[0] += 1
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
 def http_get(url, referer=EASTMONEY_REFERER):
     req = urllib.request.Request(url, headers={
         "User-Agent": USER_AGENT,
         "Referer": referer,
     })
-    with urllib.request.urlopen(req, timeout=20) as resp:
+    with _open(req, timeout=20) as resp:
         return resp.read()
 
 
