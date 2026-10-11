@@ -28,12 +28,19 @@
 
 import argparse
 import json
+import os
 import sys
 import urllib.request
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 QT_HOSTS = [
     "https://qt.gtimg.cn/q={codes}",
@@ -66,20 +73,8 @@ BUCKETS = [
 ]
 
 
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url, referer):
@@ -138,14 +133,31 @@ def secid_of(code):
     return "1." + digits if market == "sh" else "0." + digits
 
 
+def _read_text(path):
+    """读清单文件：UTF-8 优先，失败回退 GB18030（记事本/Excel 另存的 ANSI 清单）。"""
+    for encoding in ("utf-8-sig", "gb18030"):
+        try:
+            with open(path, "r", encoding=encoding) as fh:
+                return fh.read()
+        except UnicodeDecodeError:
+            continue
+        except OSError as exc:
+            sys.exit("错误：读取输入文件失败（{}）。".format(exc))
+    sys.exit("错误：输入文件编码无法识别，请另存为 UTF-8 或 GBK/ANSI 文本。")
+
+
+def _warn_unknown(unknown, origin):
+    if not unknown:
+        return
+    print("提示：{} 中无法识别为股票代码、已跳过的项：{}（如 sh600410 / sz002970）。".format(
+        origin, "、".join(unknown[:10])), file=sys.stderr)
+
+
 def parse_input_file(path):
     """返回 [(code, prev_amount_yi or None, industry or '-')]。"""
     rows = []
-    try:
-        with open(path, "r", encoding="utf-8-sig") as fh:
-            lines = fh.read().splitlines()
-    except OSError as exc:
-        sys.exit("错误：读取输入文件失败（{}）。".format(exc))
+    unknown = []
+    lines = _read_text(path).splitlines()
     for raw in lines:
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -153,6 +165,7 @@ def parse_input_file(path):
         tokens = line.replace("|", " ").replace("\t", " ").split()
         code = normalize_code(tokens[0])
         if code is None:
+            unknown.append(tokens[0])
             continue
         prev_amount = None
         industry = "-"
@@ -163,20 +176,27 @@ def parse_input_file(path):
             elif industry == "-":
                 industry = token
         rows.append((code, prev_amount, industry))
+    _warn_unknown(unknown, "清单文件")
     if not rows:
         sys.exit("错误：输入文件中没有可识别的股票代码。")
-    return rows
+    return rows, unknown
 
 
 def parse_codes(text):
     rows = []
+    unknown = []
     for part in str(text or "").replace("，", ",").split(","):
+        if not part.strip():
+            continue
         code = normalize_code(part)
         if code:
             rows.append((code, None, "-"))
+        else:
+            unknown.append(part.strip())
+    _warn_unknown(unknown, "--codes")
     if not rows:
         sys.exit("错误：--codes 中没有可识别的股票代码（如 sh600103,sz002970）。")
-    return rows
+    return rows, unknown
 
 
 def fetch_quotes(codes):
@@ -231,6 +251,7 @@ def fetch_quotes(codes):
 
 
 def _pick_bar(bars, before_date, date_index):
+    """取严格早于 before_date 的最近一根K线；取不到返回 None（不用当日K线冒充昨日）。"""
     picked = None
     for bar in bars:
         parts = bar.split(",")
@@ -239,8 +260,6 @@ def _pick_bar(bars, before_date, date_index):
         day = parts[date_index].replace("-", "")
         if before_date and day < before_date:
             picked = parts
-    if picked is None and bars:
-        picked = bars[-1].split(",")
     return picked
 
 
@@ -296,20 +315,21 @@ def fetch_prev_amount(code, before_date):
 
 
 def session_scope(quote_time):
-    """按行情时间判断口径：竞价 / 盘中 / 收盘后。"""
+    """按行情时间判断口径：竞价 / 盘中 / 收盘后（非竞价口径下竞价额与占比一律记未获取）。"""
     raw = str(quote_time or "")
     if len(raw) < 14:
-        return "unknown", "行情时间缺失，无法判断口径", None
+        return "unknown", "行情时间缺失，无法判断口径；竞价额与竞价量占比未获取", None
     date_str = raw[:8]
     clock = raw[8:12]
     today = datetime.now().strftime("%Y%m%d")
     if date_str != today:
-        return "after_close", "行情日期 {} 非今日，为收盘后/历史口径".format(date_str), date_str
+        return "after_close", ("非竞价口径：行情日期 {} 非今日，成交额为当日全天成交额，"
+                               "竞价成交额不可得（仅作事后复盘）").format(date_str), date_str
     if clock <= "0930":
         return "auction", "竞价口径（9:25 撮合后、9:30 连续竞价前，成交额即竞价成交额）", date_str
     if clock <= "1500":
-        return "intraday", "盘中口径（已含连续竞价成交额，竞价量占比不可用，仅供收盘后复盘参考）", date_str
-    return "after_close", "收盘后口径（成交额为全天成交额，仅作事后复盘）", date_str
+        return "intraday", "非竞价口径：已含连续竞价成交额，竞价成交额不可得", date_str
+    return "after_close", "非竞价口径：成交额为全天成交额，竞价成交额不可得（仅作事后复盘）", date_str
 
 
 def bucket_of(ratio):
@@ -324,7 +344,8 @@ def bucket_of(ratio):
     return "<1%"
 
 
-def build_rows(entries, quotes, data_date):
+def build_rows(entries, quotes, data_date, auction_valid=True):
+    """auction_valid=False（盘中/收盘后/口径未知）时竞价额与竞价量占比一律记未获取。"""
     rows = []
     missing_prev = []
     for code, prev_amount, industry in entries:
@@ -361,7 +382,9 @@ def build_rows(entries, quotes, data_date):
         row["gap_pct"] = (round((open_px - prev_close) * 100.0 / prev_close, 2)
                           if open_px and prev_close else None)
         row["auction_amount_yi"] = (round(row.get("amount_wan", 0) / 1e4, 3)
-                                    if row.get("amount_wan") is not None else None)
+                                    if auction_valid and row.get("amount_wan") is not None
+                                    else None)
+        row["auction_amount_note"] = None if auction_valid else "非竞价口径，未获取"
         row.pop("amount_wan", None)
     if missing_prev:
         for row in rows:
@@ -378,7 +401,7 @@ def build_rows(entries, quotes, data_date):
         auction_amount = row.get("auction_amount_yi")
         row["amount_ratio_pct"] = (
             round(auction_amount * 100.0 / prev_amount, 2)
-            if auction_amount is not None and prev_amount else None)
+            if auction_valid and auction_amount is not None and prev_amount else None)
         row["ratio_bucket"] = bucket_of(row["amount_ratio_pct"])
         limit_up = row.get("limit_up")
         limit_down = row.get("limit_down")
@@ -396,13 +419,16 @@ def build_rows(entries, quotes, data_date):
             marks.append("天地板")
         elif row["limit_down_now"]:
             marks.append("跌停")
-        if row.get("gap_pct") is not None and row["gap_pct"] <= -9.0 and not row["limit_down_now"]:
-            marks.append("接近跌停开")
+        if (limit_down and row.get("open")
+                and row["open"] <= limit_down * 1.01 and not row["limit_down_now"]):
+            marks.append("接近跌停开")   # 按该股实际跌停价判断，兼容 10%/20%/30% 涨跌幅限制
+        if row.get("auction_amount_note"):
+            marks.insert(0, "竞价额未获取")
         row["marks"] = "、".join(marks) if marks else "-"
     return rows
 
 
-def summarize(rows, quotes):
+def summarize(rows):
     valid = [r for r in rows if r.get("gap_pct") is not None]
     gaps = [r["gap_pct"] for r in valid]
     ratios = [r["amount_ratio_pct"] for r in valid if r.get("amount_ratio_pct") is not None]
@@ -411,6 +437,14 @@ def summarize(rows, quotes):
         buckets[label] = 0
     for ratio in ratios:
         buckets[bucket_of(ratio)] = buckets.get(bucket_of(ratio), 0) + 1
+    sorted_gaps = sorted(gaps)
+    if not sorted_gaps:
+        median_gap = None
+    elif len(sorted_gaps) % 2:
+        median_gap = sorted_gaps[len(sorted_gaps) // 2]
+    else:
+        mid = len(sorted_gaps) // 2
+        median_gap = (sorted_gaps[mid - 1] + sorted_gaps[mid]) / 2.0
     summary = {
         "sample": len(rows),
         "quoted": len(valid),
@@ -419,7 +453,7 @@ def summarize(rows, quotes):
         "flat_open": sum(1 for g in gaps if g == 0),
         "down_open": sum(1 for g in gaps if g < 0),
         "avg_gap_pct": round(sum(gaps) / len(gaps), 2) if gaps else None,
-        "median_gap_pct": round(sorted(gaps)[len(gaps) // 2], 2) if gaps else None,
+        "median_gap_pct": round(median_gap, 2) if median_gap is not None else None,
         "flat_or_up": sum(1 for g in gaps if g >= 0),
         "avg_amount_ratio_pct": round(sum(ratios) / len(ratios), 2) if ratios else None,
         "ratio_available": len(ratios),
@@ -463,10 +497,17 @@ def eval_top_board(top_code, rows):
     row = next((r for r in rows if r["code"] == top_code), None)
     if row is None:
         return {"code": top_code, "found": False}
+    if row.get("missing_quote"):
+        return {
+            "code": top_code, "name": None, "found": True, "data_available": False,
+            "no_trade": False,
+            "note": "未取到该股行情，硬规则无法核验 → 按「只观察」处理，不得视为未命中",
+        }
     info = {
         "code": row["code"],
         "name": row.get("name"),
         "found": True,
+        "data_available": True,
         "gap_pct": row.get("gap_pct"),
         "pct": row.get("pct"),
         "price": row.get("price"),
@@ -503,12 +544,17 @@ def render_text(payload):
         summary["up_open"], summary["flat_open"], summary["down_open"]))
     lines.append("| 平均高开幅度 | {}% |".format(fmt_signed(summary["avg_gap_pct"])))
     lines.append("| 高开幅度中位数 | {}% |".format(fmt_signed(summary["median_gap_pct"])))
-    lines.append("| 竞价量占比平均 | {}%（可用 {} 只，缺 {} 只） |".format(
-        fmt_num(summary["avg_amount_ratio_pct"]), summary["ratio_available"],
-        summary["ratio_missing"]))
+    ratio_avg = ("{}%".format(fmt_num(summary["avg_amount_ratio_pct"]))
+                 if summary["avg_amount_ratio_pct"] is not None else "未获取")
+    lines.append("| 竞价量占比平均 | {}（可用 {} 只，缺 {} 只） |".format(
+        ratio_avg, summary["ratio_available"], summary["ratio_missing"]))
     lines.append("| 竞价量占比分档 | {} |".format("；".join(
         "{} {} 只".format(label, count)
         for label, count in summary["ratio_buckets"].items())))
+    if not payload.get("auction_valid", True):
+        lines.append("")
+        lines.append("> 口径提示：本次为{}，竞价成交额不可得，故「竞价额」与「竞价量占比」一律记未获取；"
+                     "高开幅度、昨日成交额与规则检查仍然有效。".format(payload["session_label"]))
     lines.append("")
     lines.append("## 二、个股竞价明细")
     lines.append("")
@@ -541,18 +587,33 @@ def render_text(payload):
         lines.append("")
     lines.append("## 四、规则检查")
     lines.append("")
-    lines.append("- 竞价量占比 = 竞价成交额 ÷ 昨日全天成交额，可用 {} 只；经验区间 3%-8% 活跃、>15% 警惕、<1% 无人关心。".format(
-        summary["ratio_available"]))
+    lines.append("- 竞价量占比 = 竞价成交额 ÷ 昨日全天成交额，可用 {} 只；经验区间 3%-8% 活跃、>15% 警惕、<1% 无人关心。{}".format(
+        summary["ratio_available"],
+        "" if payload.get("auction_valid", True) else "（本次非竞价口径，占比不可用，见上方口径提示）"))
     top = payload.get("top_board")
     if top:
         if not top.get("found"):
             lines.append("- 昨日最高板 {}：不在本次样本中，未做判定。".format(top["code"]))
+        elif not top.get("data_available"):
+            lines.append("- 昨日最高板 {}：未取到行情，硬规则无法核验 → 按「只观察」处理，"
+                         "不得视为未命中。".format(top["code"]))
         else:
             lines.append("- 昨日最高板 {}（{}）：竞价开 {}%，现价 {}%，{}。".format(
                 top["name"], top["code"], fmt_signed(top.get("gap_pct")),
                 fmt_signed(top.get("pct")), top.get("note")))
+    if not top:
+        verdict = "未检查（未提供 --top-board）"
+    elif not top.get("found"):
+        verdict = "未检查（最高板不在样本中）"
+    elif not top.get("data_available"):
+        verdict = "不可判定（未取到最高板行情，按只观察处理）"
+    else:
+        verdict = "触发" if payload.get("no_trade_flag") else "未触发"
     lines.append("- 硬规则：若昨日最高板今日天地板或跌停 → 当天不做任何打板动作，只观察。当前判定：{}".format(
-        "触发" if payload.get("no_trade_flag") else "未触发"))
+        verdict))
+    if payload.get("skipped_codes"):
+        lines.append("- 以下代码无法识别，已从样本中剔除：{}。".format(
+            "、".join(payload["skipped_codes"][:10])))
     lines.append("")
     lines.append("数据来源：腾讯行情（批量报价）+ 东方财富日K公开接口"
                  "（东方财富不可用时用腾讯日K估算昨日成交额，标 ≈）；不构成投资建议。")
@@ -577,7 +638,7 @@ def main():
     if not args.codes and not args.file:
         ap.error("需要 --codes 或 --file 之一")
 
-    entries = parse_input_file(args.file) if args.file else parse_codes(args.codes)
+    entries, skipped = parse_input_file(args.file) if args.file else parse_codes(args.codes)
     top_code = normalize_code(args.top_board)
     if args.top_board and not top_code:
         sys.exit("错误：--top-board 代码无法识别（如 sh600410 / sz002970）。")
@@ -597,9 +658,10 @@ def main():
         print("提示：以下代码本次未取到行情（报错不脑补）：{}".format(
             ",".join(failed_codes)), file=sys.stderr)
 
-    quote_time = next((q["quote_time"] for q in quotes.values() if q["quote_time"]), "")
+    quote_time = max((q["quote_time"] for q in quotes.values() if q["quote_time"]), default="")
     scope, note, data_date = session_scope(quote_time)
-    rows = build_rows(entries, quotes, data_date)
+    auction_valid = scope == "auction"
+    rows = build_rows(entries, quotes, data_date, auction_valid=auction_valid)
     payload = {
         "quote_time": "{}-{}-{} {}:{}:{}".format(
             quote_time[0:4], quote_time[4:6], quote_time[6:8],
@@ -607,24 +669,39 @@ def main():
         "data_date": data_date,
         "session": scope,
         "session_note": note,
-        "session_label": {"auction": "竞价口径", "intraday": "盘中口径",
-                          "after_close": "收盘后口径"}.get(scope, "口径未知"),
+        "session_label": {"auction": "竞价口径", "intraday": "盘中口径（非竞价）",
+                          "after_close": "收盘后口径（非竞价）"}.get(scope, "口径未知"),
+        "auction_valid": auction_valid,
         "rows": rows,
-        "summary": summarize(rows, quotes),
+        "summary": summarize(rows),
         "boards": summarize_boards(rows),
         "top_board": eval_top_board(normalize_code(args.top_board), rows),
-        "note": "竞价量占比 = 竞价成交额 ÷ 昨日全天成交额；数据来源：腾讯行情 + 东方财富日K",
+        "skipped_codes": skipped,
+        "missing_quote_codes": failed_codes,
+        "note": "竞价量占比 = 竞价成交额 ÷ 昨日全天成交额；数据来源：腾讯行情 + 东方财富日K；"
+                "非竞价口径下竞价额与占比记未获取",
     }
     payload["no_trade_flag"] = bool(payload["top_board"] and payload["top_board"].get("no_trade"))
+    top = payload.get("top_board")
+    if top:
+        if not top.get("found"):
+            payload["top_board_check"] = "not_in_sample"
+        elif not top.get("data_available"):
+            payload["top_board_check"] = "unavailable"
+        else:
+            payload["top_board_check"] = "checked"
+    else:
+        payload["top_board_check"] = "not_requested"
 
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
-        return
-    print(render_text(payload))
+    else:
+        print(render_text(payload))
+    if payload["top_board_check"] == "unavailable":
+        # 硬规则是安全底线：最高板行情取不到就不能判「未触发」，用非 0 退出码提示上层只观察
+        sys.exit("错误：昨日最高板 {} 未取到行情，硬规则不可判定（按「只观察」处理，不得打板）。".format(
+            top["code"]))
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        sys.exit("已中断。")
+    http_util.run(main)

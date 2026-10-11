@@ -5,39 +5,34 @@
 用法:
     python fetch_quote.py <代码> [--days N] [--json]
 
-代码: 沪市 sh + 6位数字，深市 sz + 6位数字，如:
+代码: 沪市 sh + 6位数字，深市 sz + 6位数字，北交所 bj + 6位数字，如:
     sh600410  华胜天成
     sz002491  通鼎互联
+    bj920002  万达轴承（北交所日K接口只返回最近 1 根，均线不可用，报告会注明）
 
 输出: 行情报告——实时报价 + 最近N根日K + MA5/10/20/60；不产生缓存文件。
 """
 
 import argparse
 import json
+import os
 import sys
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 QT_URL = "http://qt.gtimg.cn/q={code}"
 KLINE_URL = "http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={code},day,,,{days},qfq"
 
-
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url):
@@ -133,14 +128,24 @@ def format_dt(dt):
 def build_payload(code, days):
     quote = fetch_quote(code)
     if quote is None:
-        sys.exit("错误：无法获取行情，请检查代码格式（sh/sz + 6位数字）。")
+        sys.exit("错误：无法获取行情，请检查代码格式（sh/sz/bj + 6位数字）。")
     kline = fetch_kline(code, days)
     closes = [b["close"] for b in kline if b["close"] is not None]
     mas = {n: compute_ma(closes, n) for n in (5, 10, 20, 60)}
+    notes = []
+    if not kline:
+        notes.append("日K未获取：均线不可用")
+    elif code.startswith("bj"):
+        notes.append("北交所日K：腾讯接口只返回最近 1 根，MA5/MA10/MA20/MA60 不可用"
+                     "（需要均线请改用其他数据源核对）")
+    elif len(kline) < min(days, 60):
+        notes.append("日K返回 {n} 根（请求 {days} 根），不足的均线标 -".format(
+            n=len(kline), days=days))
     return {
         "quote": quote,
         "kline": kline,
         "ma": mas,
+        "notes": notes,
         "note": "数据来源：腾讯行情公开接口",
     }
 
@@ -170,12 +175,14 @@ def print_text(code, payload):
             b["date"], fmt_num(b["open"]), fmt_num(b["close"]),
             fmt_num(b["high"]), fmt_num(b["low"]), fmt_int(b["volume"])))
     print("=" * 66)
+    for note in payload.get("notes") or []:
+        print("注：{}".format(note))
     print("注：数据来源为腾讯行情公开接口；文本仅展示最近15根，JSON 输出完整 N 根日K供计算。")
 
 
 def main():
     ap = argparse.ArgumentParser(description="A股 真实行情报告")
-    ap.add_argument("code", help="如 sh600410 / sz002491")
+    ap.add_argument("code", help="如 sh600410 / sz002491 / bj920002")
     ap.add_argument("--days", type=int, default=60, help="日K根数，默认60")
     ap.add_argument("--json", action="store_true", help="输出JSON")
     args = ap.parse_args()
@@ -194,4 +201,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    http_util.run(main)

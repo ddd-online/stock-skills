@@ -14,8 +14,14 @@
 """
 
 import json
+import os
+import sys
 import urllib.parse
 import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
 
 USER_AGENT = "Mozilla/5.0"
 TENCENT_REFERER = "https://gu.qq.com/"
@@ -49,20 +55,8 @@ F10_INDUSTRY_COLUMNS = "SECURITY_CODE,SECURITY_NAME_ABBR,BOARD_NAME,NEW_BOARD_CO
 TENCENT_QUOTE_CHUNK = 50
 
 
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url, referer, timeout=20):

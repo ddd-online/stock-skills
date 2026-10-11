@@ -5,22 +5,29 @@
 用法:
     python fetch_fundamentals.py <代码> [--periods N] [--json]
 
-代码: sh600410 / sz002498
+代码: sh600410 / sz002498 / bj920002
 输出: 财报报告——最近N个报告期的营业总收入、净利润、毛利率、净利率、负债率及同比；
 不产生缓存文件。
 
 口径说明: 报告期数值为累计值（一季报=第1季度，中报=上半年，年报=全年）；
-同比必须和去年同期比，不能拿一季报和年报直接比。
+同比必须和去年同期比，不能拿一季报和年报直接比。取不到的字段一律输出 null/「-」，不填 0。
 """
 
 import argparse
 import json
+import os
 import sys
 import urllib.parse
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 API_URL = (
     "https://datacenter-web.eastmoney.com/api/data/v1/get"
@@ -29,21 +36,8 @@ API_URL = (
     "&source=HSF10&client=PC"
 )
 
-
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url):
@@ -62,6 +56,12 @@ def to_float(value):
         return None
 
 
+def yi_or_none(value):
+    """元 → 亿元；取不到返回 None（缺失不等于 0）。"""
+    num = to_float(value)
+    return None if num is None else round(num / 1e8, 2)
+
+
 def fmt_num(value, digits=2):
     if value is None:
         return "-"
@@ -74,8 +74,10 @@ def fetch(code, size):
         secucode = secucode[2:] + ".SH"
     elif secucode.startswith("SZ"):
         secucode = secucode[2:] + ".SZ"
+    elif secucode.startswith("BJ"):
+        secucode = secucode[2:] + ".BJ"
     else:
-        sys.exit("错误：代码格式应为 sh600410 / sz002498。")
+        sys.exit("错误：代码格式应为 sh600410 / sz002498 / bj920002。")
     url = API_URL.format(
         filter=urllib.parse.quote('(SECUCODE="{}")'.format(secucode), safe=""),
         size=size,
@@ -93,15 +95,15 @@ def build_payload(code, size):
     for r in rows:
         out.append({
             "report": r.get("REPORT_DATE_NAME"),
-            "revenue_yi": round((to_float(r.get("TOTALOPERATEREVE")) or 0) / 1e8, 2),
+            "revenue_yi": yi_or_none(r.get("TOTALOPERATEREVE")),
             "revenue_yoy_pct": to_float(r.get("TOTALOPERATEREVETZ")),
-            "net_profit_yi": round((to_float(r.get("PARENTNETPROFIT")) or 0) / 1e8, 2),
+            "net_profit_yi": yi_or_none(r.get("PARENTNETPROFIT")),
             "net_profit_yoy_pct": to_float(r.get("PARENTNETPROFITTZ")),
             "gross_margin_pct": to_float(r.get("XSMLL")),
             "net_margin_pct": to_float(r.get("XSJLL")),
             "debt_ratio_pct": to_float(r.get("ZCFZL")),
             "roe_pct": to_float(r.get("ROEJQ")),
-            "net_cash_operate_yi": round((to_float(r.get("NETCASH_OPERATE_PK")) or 0) / 1e8, 2),
+            "net_cash_operate_yi": yi_or_none(r.get("NETCASH_OPERATE_PK")),
             "eps": to_float(r.get("EPSJB")),
         })
     return out
@@ -134,7 +136,7 @@ def print_text(code, rows):
 
 def main():
     ap = argparse.ArgumentParser(description="A股 财报核心指标报告")
-    ap.add_argument("code", help="如 sh600410 / sz002498")
+    ap.add_argument("code", help="如 sh600410 / sz002498 / bj920002")
     ap.add_argument("--periods", type=int, default=4, help="报告期数量，默认4")
     ap.add_argument("--json", action="store_true", help="输出JSON")
     args = ap.parse_args()
@@ -157,4 +159,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    http_util.run(main)

@@ -23,12 +23,13 @@ import argparse
 import json
 import os
 import sys
-import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
 
 import fallback_sources as fb  # noqa: E402 与脚本同目录的备用取数模块
 
@@ -93,24 +94,13 @@ FALLBACK_ENRICH_CAP = 60    # 备用源下量比/资金/行业只补展示行
 FALLBACK_WORKERS = 8
 
 ROW_KEYS = ("code", "name", "price", "change_pct", "volume_ratio", "turnover_pct",
-            "amount_wan", "amplitude_pct", "pe", "total_cap", "main_inflow_wan",
+            "amount_wan", "amount_yuan", "amplitude_pct", "pe", "total_cap",
+            "total_cap_yuan", "main_inflow_wan", "main_inflow_yuan",
             "industry", "ts", "limit_up")
 
 
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url):
@@ -225,8 +215,13 @@ def fetch_raw(board, top, min_gain, max_gain):
             break
         collected.extend(page)
         last_pct = to_float(page[-1].get("f3"))
-        if min_gain > 0 and (last_pct is None or last_pct < min_gain):
-            break
+        if last_pct is not None:
+            if min_gain > 0 and last_pct < min_gain:
+                break
+            # 只给 --max-gain 时：榜单按涨幅降序，一旦翻到 ≤max_gain 就是区间内，
+            # 后面的页只会更小，必须在此收住，否则会翻满 60 页。
+            if min_gain <= 0 and max_gain > 0 and last_pct <= max_gain:
+                break
     return collected
 
 
@@ -252,6 +247,9 @@ def normalize_rows(diff, min_turnover, max_turnover, min_gain, max_gain, include
         if max_gain > 0 and (change_pct is None or change_pct > max_gain):
             continue
         sec_code = to_sec_code(str(raw.get("f13") or ""), digits)
+        amount_yuan = to_float(raw.get("f6"))
+        total_cap_yuan = to_float(raw.get("f20"))
+        main_yuan = to_float(raw.get("f62"))
         rows.append({
             "code": sec_code,
             "name": name,
@@ -259,11 +257,14 @@ def normalize_rows(diff, min_turnover, max_turnover, min_gain, max_gain, include
             "change_pct": change_pct,
             "volume_ratio": to_float(raw.get("f10")),
             "turnover_pct": turnover,
-            "amount_wan": fmt_wan(to_float(raw.get("f6"))),
+            "amount_wan": fmt_wan(amount_yuan),
+            "amount_yuan": amount_yuan,
             "amplitude_pct": to_float(raw.get("f7")),
             "pe": to_float(raw.get("f9")),
-            "total_cap": fmt_yi(to_float(raw.get("f20"))),
-            "main_inflow_wan": fmt_wan(to_float(raw.get("f62"))),
+            "total_cap": fmt_yi(total_cap_yuan),
+            "total_cap_yuan": total_cap_yuan,
+            "main_inflow_wan": fmt_wan(main_yuan),
+            "main_inflow_yuan": main_yuan,
             "industry": str(raw.get("f100") or "-"),
             "ts": to_float(raw.get("f124")),
             "limit_up": is_limit_up(price, high, change_pct, digits),
@@ -323,6 +324,7 @@ def normalize_sina_row(raw, args):
     if high is not None and low is not None and prev_close:
         amplitude = round((high - low) / prev_close * 100, 2)
     total_cap = to_float(raw.get("mktcap"))
+    amount_yuan = to_float(raw.get("amount"))
     return {
         "code": code,
         "digits": digits,
@@ -331,11 +333,14 @@ def normalize_sina_row(raw, args):
         "change_pct": change_pct,
         "volume_ratio": None,
         "turnover_pct": turnover,
-        "amount_wan": fmt_wan(to_float(raw.get("amount"))),
+        "amount_wan": fmt_wan(amount_yuan),
+        "amount_yuan": amount_yuan,
         "amplitude_pct": amplitude,
         "pe": to_float(raw.get("per")),
         "total_cap": fmt_yi(total_cap * 1e4) if total_cap is not None else "-",
+        "total_cap_yuan": (total_cap * 1e4) if total_cap is not None else None,
         "main_inflow_wan": "-",
+        "main_inflow_yuan": None,
         "main_yuan": None,
         "industry": "-",
         "ts": None,
@@ -392,6 +397,7 @@ def enrich_fallback_rows(rows):
     for row, (_date, main_yuan, _net) in zip(rows, flows):
         row["main_yuan"] = main_yuan
         row["main_inflow_wan"] = fmt_wan(main_yuan)
+        row["main_inflow_yuan"] = main_yuan
     industries = fb.fetch_f10_industry_map([r["digits"] for r in rows])
     for row in rows:
         row["industry"] = industries.get(row["digits"]) or "-"
@@ -407,7 +413,7 @@ def build_fallback(args):
     shown = rows[:args.top]
     enrich_fallback_rows(shown[:FALLBACK_ENRICH_CAP])
     dt = next((r["quote_dt"] for r in shown if r.get("quote_dt")), None)
-    quote_time = format_dt(dt) if dt else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    quote_time = format_dt(dt) if dt else None   # 取不到行情时间就写未获取，不用本机时间冒充
     limitation = ("口径：涨跌幅榜取新浪行情（按当日涨跌幅降序）；量比取自腾讯快照；"
                   "主力净流入为新浪个股资金流口径（大单+超大单，与东财口径不一致）；"
                   "行业为东财 F10 一级行业；量比/资金/行业只补前 {} 只，其余行这三列为 -。".format(
@@ -441,7 +447,7 @@ def render_text(rows, board, top, min_turnover, max_turnover,
                 source="eastmoney", limitation=None):
     lines = []
     lines.append("# 强势股榜（Top {top} · {board} · 数据时间 {time}）".format(
-        top=top, board=BOARD_NAMES[board], time=quote_time))
+        top=top, board=BOARD_NAMES[board], time=quote_time or "未获取"))
     lines.append("")
     lines.append("排序：按涨跌幅从高到低；默认剔除 ST（名称含 ST）；"
                  "换手率过滤：{tdesc}；涨幅过滤：{gdesc}。"
@@ -451,8 +457,8 @@ def render_text(rows, board, top, min_turnover, max_turnover,
     if limitation:
         lines.append(limitation)
     if len(rows) < top:
-        lines.append("注：过滤后实际返回 {n} 只（请求 {top} 只）；"
-                     "需要更多候选请调大 --top。".format(n=len(rows), top=top))
+        lines.append("注：过滤后实际返回 {n} 只（请求 {top} 只）；可能是换手/涨幅过滤或剔除 ST 造成的，"
+                     "需要更多候选请放宽过滤条件或调大 --top。".format(n=len(rows), top=top))
     lines.append("")
     header = "| # | 代码 | 名称 | 现价 | 涨跌幅% | 量比 | 换手% | 成交额(万) | 振幅% | PE | 主力净流入(万) | 行业 | 备注 |"
     sep = "|---|---|---|---|---|---|---|---|---|---|---|---|---|"
@@ -507,9 +513,22 @@ def main():
                 rows = normalize_rows(diff, args.min_turnover, args.max_turnover,
                                       args.min_gain, args.max_gain,
                                       args.include_st)[:args.top]
-                ts = next((r["ts"] for r in rows if r["ts"]), time.time())
-                quote_time = fmt_dt(ts)
-                limitation = None
+                if not rows:
+                    raise RuntimeError("东财榜单在给定过滤条件下为空（可放宽 --min-turnover / "
+                                       "--max-turnover / --min-gain / --max-gain 或换 --board）")
+                ts = next((r["ts"] for r in rows if r["ts"]), None)
+                quote_time = fmt_dt(ts) if ts else None   # 不用本机时间冒充行情时间
+                missing_cols = []
+                if all(r["volume_ratio"] is None for r in rows):
+                    missing_cols.append("量比（东财接口本次未返回该字段，整列标 -）")
+                if all(r["main_inflow_yuan"] is None for r in rows):
+                    missing_cols.append("主力净流入（东财接口本次未返回该字段，整列标 -）")
+                limitation = ("口径：东方财富行情中心公开接口（push2 clist）；"
+                              + "；".join(missing_cols)) if missing_cols else None
+                if quote_time is None:
+                    limitation = ((limitation + "；") if limitation else
+                                  "口径：东方财富行情中心公开接口（push2 clist）；") + \
+                        "行情接口未返回数据时间，数据时间标未获取"
             else:
                 rows, limitation, quote_time = build_fallback(args)
             source = candidate
@@ -539,9 +558,8 @@ def main():
         return
 
     if not rows:
-        print("榜单为空：请调整过滤条件（--min-turnover / --max-turnover / "
-              "--min-gain / --max-gain / --board / --include-st）后重试。")
-        return
+        sys.exit("错误：榜单为空（东财与新浪两源在给定过滤条件下都没有符合的个股），"
+                 "请放宽 --min-turnover / --max-turnover / --min-gain / --max-gain 或换 --board。")
     print(render_text(rows, args.board, args.top, args.min_turnover,
                       args.max_turnover, args.min_gain, args.max_gain,
                       args.include_st, quote_time,
@@ -549,7 +567,4 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:  # noqa: BLE001 统一报错，不静默
-        sys.exit("错误：{}".format(exc))
+    http_util.run(main)

@@ -28,12 +28,19 @@ yesterday_open_close（开盘与尾盘分类汇总，含分行业）与 industry
 
 import argparse
 import json
+import os
 import sys
 import urllib.request
 from datetime import datetime, timedelta
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 POOL_HOSTS = [
     "https://push2ex.eastmoney.com",
@@ -60,20 +67,8 @@ POOL_SORT = {
 }
 
 
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url, referer):
@@ -235,47 +230,62 @@ def latest_quote_date():
     return q.get("quote_date") if q else None
 
 
+def to_yi_or_none(value):
+    """元 → 亿元；取不到返回 None（缺失不等于 0）。"""
+    num = to_float(value)
+    return None if num is None else round(num / 1e8, 2)
+
+
 def normalize_pool_row(raw):
     digits = str(raw.get("c") or "")
     if len(digits) != 6 or not digits.isdigit():
         return None
+    price = to_float(raw.get("p"))
     return {
         "code": to_sec_code(str(raw.get("m") or ""), digits),
         "name": str(raw.get("n") or "-"),
-        "price": round((to_float(raw.get("p")) or 0) / 1000.0, 2),
+        "price": None if price is None else round(price / 1000.0, 2),
         "pct": to_float(raw.get("zdp")),
-        "amount_yi": round((to_float(raw.get("amount")) or 0) / 1e8, 2),
-        "float_cap_yi": round((to_float(raw.get("ltsz")) or 0) / 1e8, 2),
-        "total_cap_yi": round((to_float(raw.get("tshare")) or 0) / 1e8, 2),
+        "amount_yi": to_yi_or_none(raw.get("amount")),
+        "float_cap_yi": to_yi_or_none(raw.get("ltsz")),
+        "total_cap_yi": to_yi_or_none(raw.get("tshare")),
         "turnover_pct": to_float(raw.get("hs")),
         "board_count": int(raw.get("lbc")) if raw.get("lbc") else None,
         "first_seal": fmt_time(raw.get("fbt")),
         "last_seal": fmt_time(raw.get("lbt")),
         "break_count": int(raw.get("zbc")) if raw.get("zbc") else None,
-        "seal_fund_yi": round((to_float(raw.get("fund")) or 0) / 1e8, 2),
+        "seal_fund_yi": to_yi_or_none(raw.get("fund")),
         "industry": str(raw.get("hybk") or "-"),
         "zt_stat": fmt_zt_stat(raw.get("zttj")),
     }
 
 
 def resolve_dates(date_arg):
-    """返回 (base_date, prev_date, base_payload, prev_payload)。"""
+    """返回 (base_date, prev_date, base_payload, prev_payload, status)。
+
+    status 记录请求日期是否被替换、基准日/前一日数据是否真的取到——「取不到」与
+    「当天 0 家涨停」必须区分，前者不得渲染成 0 家。
+    """
     if date_arg:
         base_date = parse_date(date_arg)
     else:
         base_date = datetime.now()
     found, base_payload = walk_date(base_date)
     qdate = latest_quote_date()
+    status = {"qdate": qdate, "base_available": pool_has_rows(base_payload)}
     if qdate and found.strftime("%Y%m%d") > qdate:
         # 涨停池接口可能回退到最新有数据日；行情日期更可信，回退到行情日期
         base_date = datetime.strptime(qdate, "%Y%m%d")
         base_payload = fetch_pool("zt", qdate)
+        status["base_available"] = pool_has_rows(base_payload)
     else:
         base_date = found
     if not pool_has_rows(base_payload):
         base_payload = {"pool": [], "tc": 0, "qdate": None}
+        status["base_available"] = False
     prev_day, prev_payload = walk_date(base_date - timedelta(days=1))
-    return base_date, prev_day, base_payload, prev_payload
+    status["prev_available"] = pool_has_rows(prev_payload)
+    return base_date, prev_day, base_payload, prev_payload, status
 
 
 def industry_distribution(zt_rows):
@@ -462,7 +472,8 @@ def industry_promotion_stats(prev_zt_rows, zt_rows, zb_rows):
 
 
 def render_text(base, prev, zt_rows, zb_rows, dt_rows, prev_zt_rows,
-                prev_zb_rows, prev_dt_rows, quotes, quote_date, one_word):
+                prev_zb_rows, prev_dt_rows, quotes, quote_date, one_word,
+                data_available=True, notes=()):
     zt_n = len(zt_rows)
     zb_n = len(zb_rows)
     dt_n = len(dt_rows)
@@ -485,6 +496,15 @@ def render_text(base, prev, zt_rows, zb_rows, dt_rows, prev_zt_rows,
     lines.append("口径：东财 push2ex 涨停板专题，涨停池不含 ST 与科创板；"
                  "盘中运行数值随行情变化。")
     lines.append("")
+    if not data_available:
+        lines.append("> **数据未获取**：{} 没有取到涨停池数据（可能为非交易日，或超出接口覆盖范围"
+                     "（约近 30 个交易日））。下表所有 0 家均为「未获取」，不是真实值，"
+                     "不得用于阵型判定。".format(base.strftime("%Y-%m-%d")))
+        lines.append("")
+    for note in notes:
+        lines.append("> 说明：{}".format(note))
+    if notes:
+        lines.append("")
 
     lines.append("## 一、今日涨停/跌停/炸板概览")
     lines.append("")
@@ -701,9 +721,17 @@ def main():
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     args = ap.parse_args()
 
-    base, prev, base_payload, prev_payload = resolve_dates(args.date)
+    base, prev, base_payload, prev_payload, status = resolve_dates(args.date)
     base_str = base.strftime("%Y%m%d")
     prev_str = prev.strftime("%Y%m%d")
+
+    notes = []
+    if args.date and args.date.strip() != base_str:
+        notes.append("请求日期 {} 未取到涨停池数据，已改用最近有数据的交易日 {}。".format(
+            args.date.strip(), base_str))
+    if not status["base_available"]:
+        notes.append("{} 涨停池为空或接口无该日数据；若该日为非交易日请改用交易日，"
+                     "否则请稍后重试（接口只覆盖约近 30 个交易日）。".format(base_str))
 
     zt = fetch_pool("zt", base_str)
     dt = fetch_pool("dt", base_str)
@@ -727,7 +755,9 @@ def main():
     prev_dt_n = len(prev_dt_rows)
     prev_max_board = max((r["board_count"] or 1 for r in prev_zt_rows), default=None)
 
+    # 高标梯队按板数降序、同板数按首封时间：文本表、JSON 与「一字」核验取同一批前 15 只
     board_rows = [r for r in zt_rows if (r["board_count"] or 1) >= 2]
+    board_rows.sort(key=lambda r: (-(r["board_count"] or 0), r["first_seal"] or ""))
     one_word_codes = sorted(set(r["code"] for r in board_rows[:15]))
     quotes = fetch_quotes(one_word_codes)
     quote_date = next((q["quote_date"] for q in quotes.values() if q["quote_date"]),
@@ -742,6 +772,9 @@ def main():
 
     one_word = one_word_check(board_rows, quotes)
 
+    if not status["base_available"] and not zt_rows and not zb_rows and not dt_rows:
+        notes.append("本次判定无效：基准日无任何涨停/跌停/炸板数据。")
+
     if args.json:
         prev_codes = set(r["code"] for r in prev_zt_rows)
         today_codes = set(r["code"] for r in zt_rows)
@@ -751,6 +784,9 @@ def main():
             "base_date": base_str,
             "prev_date": prev_str,
             "quote_date": quote_date,
+            "data_available": status["base_available"],
+            "data_notes": notes,
+            "prev_data_available": status["prev_available"],
             "overview": {
                 "zt_count": zt_n,
                 "dt_count": dt_n,
@@ -785,15 +821,20 @@ def main():
             "note": "数据来源：东方财富 push2ex + 腾讯行情；涨停池不含 ST 与科创板",
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
+        if not status["base_available"]:
+            http_util.mark_json_emitted()
+            sys.exit("错误：{} 未取到涨停池数据（非交易日或超出接口覆盖范围），"
+                     "JSON 中 data_available=false，数值不得当作真实值。".format(base_str))
         return
 
     text = render_text(base, prev, zt_rows, zb_rows, dt_rows, prev_zt_rows,
-                       prev_zb_rows, prev_dt_rows, quotes, quote_date, one_word)
+                       prev_zb_rows, prev_dt_rows, quotes, quote_date, one_word,
+                       data_available=status["base_available"], notes=notes)
     print(text)
+    if not status["base_available"]:
+        sys.exit("错误：{} 未取到涨停池数据（非交易日或超出接口覆盖范围），"
+                 "报告中所有 0 家均为未获取。".format(base_str))
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:  # noqa: BLE001 统一报错，不静默
-        sys.exit("错误：{}".format(exc))
+    http_util.run(main)

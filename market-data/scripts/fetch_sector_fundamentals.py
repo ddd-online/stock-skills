@@ -29,6 +29,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
+
 import fallback_sources as fb  # noqa: E402 与脚本同目录的备用取数模块
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -64,20 +66,8 @@ BOARD_FIELDS = "f12,f13,f14,f3,f104,f105,f128,f136"
 STOCK_FIELDS = "f2,f3,f12,f13,f14,f20,f21"
 
 
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url, referer):
@@ -118,6 +108,23 @@ def fmt_dt(ts):
         return datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M:%S")
     except (TypeError, ValueError, OSError):
         return "-"
+
+
+def yi_or_none(value):
+    """元 → 亿元；取不到时返回 None（缺失不等于 0）。"""
+    num = to_float(value)
+    return None if num is None else round(num / 1e8, 2)
+
+
+# 财报行的键集合：占位行与真实行都按它对齐，避免渲染层取到不存在的键
+FINANCE_FIELDS = ("report", "revenue_yi", "revenue_yoy_pct", "net_profit_yi",
+                  "net_profit_yoy_pct", "gross_margin_pct", "net_margin_pct",
+                  "debt_ratio_pct", "roe_pct", "net_cash_operate_yi")
+
+
+def missing_finance():
+    """未取到财报时的占位行（各字段一律 None，渲染成「-」，不填 0）。"""
+    return {key: ("-" if key == "report" else None) for key in FINANCE_FIELDS}
 
 
 def to_sec_code(market, digits):
@@ -238,25 +245,28 @@ def fetch_latest_finance(sec_code):
         filter=urllib.parse.quote('(SECUCODE="{}")'.format(secucode), safe=""))
     raw = http_get(url, "https://emweb.securities.eastmoney.com/")
     data = decode_json(raw)
+    if data.get("success") is False:
+        return None
     rows = ((data.get("result") or {}).get("data") or [])
     if not rows:
         return None
     r = rows[0]
-    return {
+    out = {
         "report": str(r.get("REPORT_DATE_NAME") or "-"),
-        "revenue_yi": round((to_float(r.get("TOTALOPERATEREVE")) or 0) / 1e8, 2),
+        "revenue_yi": yi_or_none(r.get("TOTALOPERATEREVE")),
         "revenue_yoy_pct": to_float(r.get("TOTALOPERATEREVETZ")),
-        "net_profit_yi": round((to_float(r.get("PARENTNETPROFIT")) or 0) / 1e8, 2),
+        "net_profit_yi": yi_or_none(r.get("PARENTNETPROFIT")),
         "net_profit_yoy_pct": to_float(r.get("PARENTNETPROFITTZ")),
         "gross_margin_pct": to_float(r.get("XSMLL")),
         "net_margin_pct": to_float(r.get("XSJLL")),
         "debt_ratio_pct": to_float(r.get("ZCFZL")),
         "roe_pct": to_float(r.get("ROEJQ")),
-        "net_cash_operate_yi": round((to_float(r.get("NETCASH_OPERATE_PK")) or 0) / 1e8, 2),
+        "net_cash_operate_yi": yi_or_none(r.get("NETCASH_OPERATE_PK")),
     }
+    return {key: out.get(key) for key in FINANCE_FIELDS}   # 键集合恒定，缺失即 None
 
 
-def render_text(board, rows, quote_time, source="eastmoney"):
+def render_text(board, rows, quote_time, source="eastmoney", finance_errors=()):
     lines = []
     up = "-" if board["up_count"] is None else int(board["up_count"])
     down = "-" if board["down_count"] is None else int(board["down_count"])
@@ -294,15 +304,21 @@ def render_text(board, rows, quote_time, source="eastmoney"):
                              cash=fmt_num(r["net_cash_operate_yi"])))
         lines.append("")
 
-    rev_rank = sorted(rows, key=lambda x: x["revenue_yi"] or -1, reverse=True)
+    rev_rank = sorted(rows, key=lambda x: (x["revenue_yi"] is None, -(x["revenue_yi"] or 0)))
     table(rev_rank, "营收榜", "revenue_yi")
-    profit_rank = sorted(rows, key=lambda x: x["net_profit_yi"] or -1, reverse=True)
+    profit_rank = sorted(rows, key=lambda x: (x["net_profit_yi"] is None,
+                                              -(x["net_profit_yi"] or 0)))
     table(profit_rank, "净利榜", "net_profit_yi")
 
     missing = [r["code"] + " " + r["name"] for r in rows
-               if r.get("report") == "-" or r["revenue_yi"] is None]
+               if r.get("report") == "-" or r["revenue_yi"] is None
+               or r["net_profit_yi"] is None]
     if missing:
         lines.append("未取到最新财报：{}（数据缺失时不可作为行业龙头依据）".format("、".join(missing)))
+        lines.append("")
+    if finance_errors:
+        lines.append("财报请求失败 {} 只：{}（已按未取到处理）".format(
+            len(finance_errors), "；".join(finance_errors[:5])))
         lines.append("")
     lines.append("数据来源：东方财富数据中心（F10 主要财务指标）+ {}；"
                  "主营收入占比需另用 F10/公告核验，本报告不提供。不构成投资建议。".format(
@@ -352,9 +368,11 @@ def main():
                         "name": name,
                         "price": to_float(raw.get("f2")),
                         "change_pct": to_float(raw.get("f3")),
-                        "float_cap_yi": round((to_float(raw.get("f21")) or 0) / 1e8, 2),
-                        "total_cap_yi": round((to_float(raw.get("f20")) or 0) / 1e8, 2),
+                        "float_cap_yi": yi_or_none(raw.get("f21")),
+                        "total_cap_yi": yi_or_none(raw.get("f20")),
                     })
+                if not members:
+                    raise RuntimeError("东财板块行情未返回 {} 的成分股（可能被 ST 过滤或接口限流）".format(bk_code))
             else:
                 board, members = fetch_f10_board(bk_code, args.top, args.include_st)
             source = candidate
@@ -365,14 +383,16 @@ def main():
         sys.exit("错误：板块财务排名取数失败（{}）".format("；".join(errors)))
 
     rows = []
+    finance_errors = []
     for member in members:
         sec_code = member["code"]
-        fin = fetch_latest_finance(sec_code)
+        try:
+            fin = fetch_latest_finance(sec_code)
+        except Exception as exc:  # noqa: BLE001 单只财报失败只影响该行，不中断整份报告
+            fin = None
+            finance_errors.append("{} {}".format(sec_code, exc))
         if fin is None:
-            fin = {"report": "-", "revenue_yi": None, "revenue_yoy_pct": None,
-                   "net_profit_yi": None, "net_profit_yoy_pct": None,
-                   "gross_margin_pct": None, "net_margin_pct": None,
-                   "debt_ratio_pct": None, "roe_pct": None}
+            fin = missing_finance()
         row = dict(member)
         row.update(fin)
         rows.append(row)
@@ -386,9 +406,12 @@ def main():
             "top": args.top,
             "source": source,
             "source_name": SOURCE_NAMES[source],
-            "quote_time": quote_time,
+            "report_time": quote_time,
+            "quote_time": None,
             "rows": rows,
-            "note": "数据来源：{}；最新报告期累计口径".format(SOURCE_NAMES[source]),
+            "finance_errors": finance_errors,
+            "note": "数据来源：{}；最新报告期累计口径；行情为最近交易日收盘数据（板块接口未返回行情时间），"
+                    "quote_time 恒为 null，report_time 为报告生成时间".format(SOURCE_NAMES[source]),
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
@@ -396,11 +419,8 @@ def main():
     if not rows:
         print("未获取到任何成分股数据：请确认 --board 正确，或放宽 --top/--include-st。")
         return
-    print(render_text(board, rows, quote_time, source=source))
+    print(render_text(board, rows, quote_time, source=source, finance_errors=finance_errors))
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:  # noqa: BLE001 统一报错，不静默
-        sys.exit("错误：{}".format(exc))
+    http_util.run(main)

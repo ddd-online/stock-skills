@@ -2,7 +2,7 @@
 
 中文 A 股实盘交易辅助的 Codex skills 集合：核心闭环覆盖「个股分析 → 交易计划 → 建仓/持仓 → 清仓复盘 → 统计归档」，板块龙头查找（leader-find）、涨停板查找（limit-find）、题材生命周期（limit-lifecycle）、打板竞价评估（limit-judge）、蓄力票发现（simmer-find）是五个可选查找与评估入口。每个 skill 独立自包含（SKILL.md + references + scripts），真实数据统一由 market-data 拉取（腾讯行情 + 东方财富行情/板块/财报/新闻/资金流/数据中心 F10 + 新浪行情与资金流公开接口）并输出数据报告——东财行情中心接口不可用时脚本按 auto 自动切腾讯/新浪/东财 F10 备用源并标注数据源与口径，无需密钥。
 
-当前版本：7.6.1 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
+当前版本：7.6.2 · [查看发布记录](https://github.com/ddd-online/stock-skills/releases)
 
 ## Skills 一览
 
@@ -92,7 +92,7 @@ stock-skills/
 │   ├── SKILL.md            # 触发说明与工作流（必读）
 │   ├── agents/openai.yaml  # 界面元数据
 │   ├── references/         # 中文参考文档（按需加载）
-│   └── scripts/            # 各 skill 专属脚本；真实数据脚本集中在 market-data/scripts/（fetch_quote / fetch_fundamentals / fetch_news / fetch_capital_flow / fetch_strong_stocks / fetch_sector_boards / fetch_sector_leaders / fetch_sector_fundamentals / fetch_limit_up）
+│   └── scripts/            # 各 skill 专属脚本；真实数据脚本集中在 market-data/scripts/（fetch_quote / fetch_fundamentals / fetch_news / fetch_capital_flow / fetch_strong_stocks / fetch_sector_boards / fetch_sector_leaders / fetch_sector_fundamentals / fetch_limit_up / fetch_auction），网络层（直连优先、系统代理兜底）与备用源分别在 http_util.py 与 fallback_sources.py
 └── README.md
 ```
 

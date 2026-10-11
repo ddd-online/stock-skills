@@ -20,10 +20,15 @@
 import argparse
 import difflib
 import json
+import os
 import sys
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -41,7 +46,8 @@ EASTMONEY_HOSTS = [
 ]
 EASTMONEY_REFERER = "https://data.eastmoney.com/"
 EASTMONEY_PAGE_SIZE = 100
-EASTMONEY_MAX_PAGES = 12  # 行业+概念合计约 600 个板块，12 页足够
+EASTMONEY_MAX_PAGES = 12
+GAIN10_PRESORT_CAP = 100     # 腾讯源按 10 日涨幅排序时的候选上限（逐板块一次日K，防限流）  # 行业+概念合计约 600 个板块，12 页足够
 
 # fs 板块全集：m:90=板块市场 t:2=行业板块 t:3=概念板块 f:!50=剔除已退市
 BOARD_FS = {
@@ -120,20 +126,8 @@ SOURCE_ORDER = {
 }
 
 
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url, referer=EASTMONEY_REFERER):
@@ -198,10 +192,18 @@ def fmt_dt(ts):
 
 
 def to_sec_code(market, digits):
-    # 领涨股市场：1=沪市、0=深市（北交所领涨股极少见，按深市口径处理即可）
+    # 领涨股市场：1=沪市、0=深市；北交所按代码前缀识别（92/4/8 开头）
     if market == "1":
         return "sh" + digits
+    if digits[:2] == "92" or digits[:1] in ("4", "8"):
+        return "bj" + digits
     return "sz" + digits
+
+
+def yi_or_none(value):
+    """元 → 亿元；取不到返回 None（缺失不等于 0）。"""
+    num = to_float(value)
+    return None if num is None else round(num / 1e8, 2)
 
 
 def fetch_eastmoney_page(board_type, sort, page_no, page_size):
@@ -219,10 +221,10 @@ def fetch_eastmoney_page(board_type, sort, page_no, page_size):
             data = get_json(url, EASTMONEY_REFERER)
             node = data.get("data") or {}
             diff = node.get("diff") or []
-            if data.get("rc") != 0 or not diff:
+            if data.get("rc") != 0:
                 last_error = "第 {} 页接口无数据 rc={}".format(page_no, data.get("rc"))
                 continue
-            return diff
+            return diff   # 空列表＝已翻到末页，不算失败（板块数恰为整页倍数时不报错）
         except Exception as exc:  # noqa: BLE001 网络或解析失败时换下一个东财域名
             last_error = str(exc)
             continue
@@ -251,9 +253,9 @@ def normalize_eastmoney_rows(diff):
             "leader_change_pct": to_float(raw.get("f136")),
             "up_count": to_float(raw.get("f104")),
             "down_count": to_float(raw.get("f105")),
-            "amount_yi": round((to_float(raw.get("f6")) or 0) / 1e8, 2),
+            "amount_yi": yi_or_none(raw.get("f6")),
             "turnover_pct": to_float(raw.get("f8")),
-            "main_inflow_yi": round((to_float(raw.get("f62")) or 0) / 1e8, 2),
+            "main_inflow_yi": yi_or_none(raw.get("f62")),
             "main_inflow5_yi": None,
             "main_inflow20_yi": None,
             "ts": to_float(raw.get("f124")),
@@ -266,6 +268,8 @@ def fetch_eastmoney_rows(args):
     diff = []
     for page_no in range(1, EASTMONEY_MAX_PAGES + 1):
         page = fetch_eastmoney_page(args.type, args.sort, page_no, EASTMONEY_PAGE_SIZE)
+        if not page:
+            break
         diff.extend(page)
         if len(page) < EASTMONEY_PAGE_SIZE:
             break
@@ -392,18 +396,26 @@ def no_match_reason(rows, args):
     keyword = args.search.strip()
     if not keyword:
         return "过滤后无板块（检查 --type / --min-up）"
+    matched = [r for r in rows if keyword.lower() in r["name"].lower()]
+    if matched:
+        return ("名称包含“{kw}”的板块有 {n} 个（{names}），但它们都被 --min-up {mu} 等过滤条件"
+                "剔除了；请放宽 --min-up 后重试（本数据源共 {total} 个板块）").format(
+                    kw=keyword, n=len(matched),
+                    names="、".join(r["name"] for r in matched[:5]),
+                    mu=args.min_up, total=len(rows))
     tips = difflib.get_close_matches(keyword, [r["name"] for r in rows], n=5, cutoff=0.3)
     if tips:
         return ("没有名称包含“{kw}”的板块（本数据源共 {n} 个板块）；"
                 "最接近的板块名：{tips}（改用近似板块时必须在报告里写明替代关系与数据源）").format(
                     kw=keyword, n=len(rows), tips="、".join(tips))
     return ("没有名称包含“{kw}”的板块（本数据源共 {n} 个板块），也没有相近名称；"
-            "可换关键词、加 --type all 重试，或等东财板块接口恢复").format(
+            "可换关键词、加 --type all（概念板块需 --type concept/all）重试，"
+            "或等东财板块接口恢复").format(
                 kw=keyword, n=len(rows))
 
 
 def prepare_rows(args):
-    """返回 (数据源, 行)：auto 先东财、失败或为空再切腾讯；行已过滤、排序并截断到 --top。"""
+    """返回 (数据源, 行, meta)：auto 先东财、失败或为空再切腾讯；行已过滤、排序并截断到 --top。"""
     errors = []
     for source in SOURCE_ORDER[args.source]:
         try:
@@ -412,12 +424,21 @@ def prepare_rows(args):
             rows = filter_rows(fetched, args.min_up, args.search)
             if not rows:
                 raise RuntimeError(no_match_reason(fetched, args))
+            meta = {"gain10_partial": False}
             if source == "tencent" and args.sort == "gain10":
-                fill_tencent_multiday(rows)  # 按 10 日涨幅排序要先补齐全量
+                # 逐板块取指数日K，只在前 N 个候选里回算 10 日涨幅，避免数百次请求触发限流
+                prelim = sort_rows([r for r in rows if r.get("change5_pct") is not None],
+                                   "gain5")[:GAIN10_PRESORT_CAP]
+                meta["gain10_partial"] = len(prelim) < len(rows)
+                fill_tencent_multiday(prelim)
+                rows = prelim
             rows = sort_rows(rows, args.sort)[:args.top]
             if source == "tencent":
                 fill_tencent_multiday(rows)  # 展示行补齐 10 日涨幅与最新交易日
-            return source, rows
+            if source == "eastmoney" and rows:
+                pairs = [(r["change5_pct"], r["change10_pct"]) for r in rows]
+                meta["same_5_10"] = all(a is not None and a == b for a, b in pairs)
+            return source, rows, meta
         except Exception as exc:  # noqa: BLE001 主源失败切备用源，两源全失败才报错
             errors.append("{}：{}".format(SOURCE_NAMES[source], exc))
     raise RuntimeError("板块榜取数失败（{}）".format("；".join(errors)))
@@ -426,9 +447,9 @@ def prepare_rows(args):
 def quote_label(source, rows):
     if source == "eastmoney":
         ts = next((r.get("ts") for r in rows if r.get("ts")), None)
-        return fmt_dt(ts) if ts else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return fmt_dt(ts) if ts else None   # 取不到行情时间写未获取，不用本机时间冒充
     dates = sorted({str(r.get("quote_date")) for r in rows if r.get("quote_date")})
-    return dates[-1] if dates else datetime.now().strftime("%Y-%m-%d")
+    return dates[-1] if dates else None
 
 
 def source_note(source):
@@ -441,13 +462,20 @@ def source_note(source):
             "下钻成分股需要东财接口可用；与东财口径数值不可混用于同一张对比表。")
 
 
-def render_text(rows, args, source, quote_time):
+def render_text(rows, args, source, quote_time, meta=None):
+    meta = meta or {}
     lines = []
     lines.append("# 板块行情榜（{board} · 排序：{sort} · Top {top} · 数据时间 {time}）".format(
         board=BOARD_TYPE_NAMES[args.type], sort=SORT_NAMES[args.sort],
-        top=args.top, time=quote_time))
+        top=args.top, time=quote_time or "未获取"))
     lines.append("")
     lines.append(source_note(source))
+    if meta.get("same_5_10"):
+        lines.append("口径提示：东财接口本次返回的近10日涨幅与近5日涨幅逐行同值（字段 f160 与 f109 同值），"
+                     "10 日维度不可用；需要 10 日口径请用 --source tencent。")
+    if meta.get("gain10_partial"):
+        lines.append("口径提示：腾讯源按 10 日涨幅排序时只在前 {} 个候选板块内用指数日K回算"
+                     "（逐板块一次请求，避免限流），未覆盖全量板块。".format(GAIN10_PRESORT_CAP))
     if args.min_up > 0:
         lines.append("口径：上涨家数低于 {min_up} 的板块已剔除。数据未经验证，仅供板块扫描。".format(
             min_up=args.min_up))
@@ -500,7 +528,7 @@ def main():
         sys.exit("错误：--top 必须为正整数。")
 
     try:
-        source, rows = prepare_rows(args)
+        source, rows, meta = prepare_rows(args)
     except Exception as exc:  # noqa: BLE001 统一报错，不静默
         sys.exit("错误：{}".format(exc))
 
@@ -519,19 +547,22 @@ def main():
             "source_name": SOURCE_NAMES[source],
             "quote_time": quote_time,
             "rows": rows,
+            "limitations": [text for text in (
+                "东财接口 f160 与 f109 同值，近10日涨幅不可用（10 日维度请用 --source tencent）"
+                if meta.get("same_5_10") else None,
+                "腾讯源 10 日涨幅只在前 {} 个候选板块内回算，未覆盖全量".format(GAIN10_PRESORT_CAP)
+                if meta.get("gain10_partial") else None,
+                "行情接口未返回数据时间时 quote_time 为 null" if quote_time is None else None,
+            ) if text],
             "note": source_note(source),
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
 
     if not rows:
-        print("板块榜为空：请调整过滤条件（--type / --sort / --top / --min-up / --search）后重试。")
-        return
-    print(render_text(rows, args, source, quote_time))
+        sys.exit("错误：板块榜为空（请调整 --type / --sort / --top / --min-up / --search 后重试）。")
+    print(render_text(rows, args, source, quote_time, meta))
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:  # noqa: BLE001 统一报错，不静默
-        sys.exit("错误：{}".format(exc))
+    http_util.run(main)

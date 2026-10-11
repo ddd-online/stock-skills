@@ -12,6 +12,7 @@
 数据源: 东方财富资金流接口优先；该接口不可用时自动切新浪个股资金流
 （MoneyFlow.ssl_qsfx_zjlrqs，主力净额＝大单+超大单口径）——备用源给主力净额、主动净额与
 近5日主力净额，超大单/大单/中单/小单拆分标「未获取」，报告里标注实际数据源与口径差异。
+东财口径的近5日主力净额取 fflow/kline?lmt=5 的多日序列自算（老字段 f178 部分节点已返回空）。
 """
 
 import argparse
@@ -21,6 +22,8 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import http_util  # noqa: E402 与脚本同目录的网络层（直连优先、系统代理兜底）
 
 import fallback_sources as fb  # noqa: E402 与脚本同目录的备用取数模块
 
@@ -50,10 +53,12 @@ HOSTS = [
 ]
 FFLOW_URL = (
     "{host}/api/qt/stock/fflow/kline/get"
-    "?lmt=1&klt=101&secid={secid}"
+    "?lmt=5&klt=101&secid={secid}"
     "&fields1=f1,f2,f3,f7"
     "&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65"
 )
+# 兜底：老接口字段 f178（近5日主力净额序列）。实测部分节点已返回空串，
+# 故 5 日序列改为优先用 fflow/kline?lmt=5 的多日 klines 自算。
 MAIN5_URL = (
     "{host}/api/qt/stock/get"
     "?secid={secid}&fltt=2&fields=f58,f178"
@@ -67,20 +72,8 @@ def to_secid(code):
     return MARKET[prefix] + "." + digits
 
 
-# 本地定制（2026-10-09）：Windows 注册表代理（如 127.0.0.1:7890）会被 urllib 自动采用，
-# 实测该代理转发东财 push2 接口时连接被立即关闭；此处改为优先直连，连续失败后再回退系统代理。
-_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_DIRECT_FAILS = [0]
-
-
-def _open(req, timeout):
-    """优先直连（绕过注册表代理），直连连续失败 3 次后回退系统代理。"""
-    if _DIRECT_FAILS[0] < 3:
-        try:
-            return _DIRECT_OPENER.open(req, timeout=timeout)
-        except Exception:  # noqa: BLE001 直连失败时累计并回退
-            _DIRECT_FAILS[0] += 1
-    return urllib.request.urlopen(req, timeout=timeout)
+# 网络层统一走 http_util：直连优先（绕过 Windows 注册表代理），连续失败 3 次后回退系统代理。
+_open = http_util.open_url
 
 
 def http_get(url):
@@ -121,33 +114,41 @@ def fetch_with_fallback(url_tpl, secid):
 def fetch(code):
     secid = to_secid(code)
     data = fetch_with_fallback(FFLOW_URL, secid)
-    klines = (data.get("data") or {}).get("klines") or []
+    node = data.get("data") or {}
+    klines = node.get("klines") or []
     latest = None
-    if klines:
-        b = klines[-1].split(",")
-        if len(b) >= 6:
-            latest = {
-                "date": b[0],
-                "main": to_float(b[1]),
-                "small": to_float(b[2]),
-                "medium": to_float(b[3]),
-                "large": to_float(b[4]),
-                "super_large": to_float(b[5]),
-            }
-
-    data2 = fetch_with_fallback(MAIN5_URL, secid)
-    d2 = data2.get("data") or {}
     main5 = []
-    try:
-        rows = json.loads(d2.get("f178") or "[]")
-    except (TypeError, ValueError):
-        rows = []
-    for r in rows:
-        amt = to_float(r.get("mainNetAmt"))
-        if amt is not None:
-            main5.append({"date": r.get("date"), "main": amt})
+    for row in klines:
+        b = str(row).split(",")
+        if len(b) < 6:
+            continue
+        main5.append({"date": b[0], "main": to_float(b[1])})
+        latest = {
+            "date": b[0],
+            "main": to_float(b[1]),
+            "small": to_float(b[2]),
+            "medium": to_float(b[3]),
+            "large": to_float(b[4]),
+            "super_large": to_float(b[5]),
+        }
+
+    name = node.get("name")
+    main5 = [r for r in main5 if r["main"] is not None]
+    if not main5:
+        # 兜底：fflow 多日序列不可用时，退回 f178（若该节点仍提供）
+        data2 = fetch_with_fallback(MAIN5_URL, secid)
+        d2 = data2.get("data") or {}
+        name = name or d2.get("f58")
+        try:
+            rows = json.loads(d2.get("f178") or "[]")
+        except (TypeError, ValueError):
+            rows = []
+        for r in rows:
+            amt = to_float(r.get("mainNetAmt"))
+            if amt is not None:
+                main5.append({"date": r.get("date"), "main": amt})
     return {
-        "name": d2.get("f58"),
+        "name": name,
         "latest_day": latest,
         "main_5d": main5,
     }
@@ -261,4 +262,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    http_util.run(main)
