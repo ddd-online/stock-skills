@@ -18,7 +18,7 @@ stock-skills/
 └── AGENTS.md
 ```
 
-现有 skills（10 个）：market-data（数据层）、stock-analysis（个股分析与持仓检查）、leader-find（板块龙头查找）、limit-find（涨停板查找）、limit-lifecycle（题材生命周期）、limit-judge（打板竞价评估）、simmer-find（蓄力票发现）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
+现有 skills（9 个）：market-data（数据层）、stock-analysis（个股分析与持仓检查）、leader-find（板块龙头查找）、limit-find（涨停板查找）、limit-lifecycle（题材生命周期）、limit-judge（打板竞价评估）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
 
 约定：
 
@@ -29,9 +29,9 @@ stock-skills/
 - 取数脚本的网络层约定：market-data/scripts 的网络层统一走同目录的 http_util.py（`_open = http_util.open_url`），一律「直连优先、系统代理兜底」——Windows 注册表代理（如 127.0.0.1:7890）会被 Python urllib 自动采用，实测该代理转发东财 push2 接口时连接被立即关闭（RemoteDisconnected），故先走无代理直连（ProxyHandler({})）、连续失败 3 次后再回退系统代理，回退后每 20 次请求重试一次直连；东财节点列表除 push2 / push2delay 外还带镜像 push2test.eastmoney.com（主节点被限流时的可用节点，覆盖 clist / ulist.np / stock / fflow / kline 路径；注意该镜像的 kline 路径返回空数据，取日K的脚本需保留腾讯日K兜底并标 ≈）。新增或改动取数脚本时保留这两层，否则会在代理环境或东财限流时整体取不到数；另注意 fetch_sector_boards.py --search 会翻完整板块列表，单次会话连续调用超过 5–6 次易触发东财限流，取多个板块代码时优先复用已有 BK 代码或分批间隔调用。
 - 取数脚本的「未获取」约定：接口没返回或取不到时，字段一律 None/「-」并在输出里标「未获取」，不得填 0 或改用本机时间/最近一根K线冒充；「接口没数据」与「当日确实为 0」必须区分（如 fetch_limit_up 在非交易日/超出接口覆盖时输出 data_available=false 并以退出码 1 报错）；板块类脚本在东财字段整列缺失（如 f109/f160/f10 返回 "-"）时必须在输出里写明该列未获取，不得静默留空。
 - 板块字段的口径陷阱（实测记录）：东财镜像节点的 f160（近10日）与 f109（近5日）逐行同值，10 日维度不可用；个股的 f109/f160/f10（量比）在该节点返回 "-"；资金流老字段 f178（近5日主力序列）在三节点均返回空串，故近5日主力改用 fflow/kline?lmt=5 自算。取这些字段时按上述实测行为处理，不要假设字段可用。
-- 查找类 skill（leader-find、limit-find、simmer-find）不依赖工作区文件，可在任意目录运行；leader-find 必须传入一个板块参数（板块名或 BK 代码），未给板块时不运行、先向用户索取，也不做全市场扫描；simmer-find 先用 market-data 的板块行情榜取强势板块，只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票；limit-judge 不读工作区文件，但依赖 limit-find 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源；limit-lifecycle 依赖 limit-find 落盘的当日 report/涨停板复盘/YYYY-MM-DD.md 作为输入（没有当日报告先执行 limit-find，报告写入 report/题材生命周期/YYYY-MM-DD.md），并只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票。
+- 查找类 skill（leader-find、limit-find）不依赖工作区文件，可在任意目录运行；leader-find 必须传入一个板块参数（板块名或 BK 代码），未给板块时不运行、先向用户索取，也不做全市场扫描；limit-judge 不读工作区文件，但依赖 limit-find 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源；limit-lifecycle 依赖 limit-find 落盘的当日 report/涨停板复盘/YYYY-MM-DD.md 作为输入（没有当日报告先执行 limit-find，报告写入 report/题材生命周期/YYYY-MM-DD.md），并只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票。
 - 不使用观察池，也不创建 WATCHLIST.md 等状态文件：stock-analysis 的分析模式只分析并输出报告，不落盘、不维护任何池或状态；「观察」只是报告里的等待中间态（触发条件与预案写在报告里，由用户自行盯）。同一 skill 的持仓检查模式只允许两处落盘——向既有 STOCK-REVIEW.md 追加每日检查行、回写 POSITION.md 现价与浮动盈亏（不建档、不改写交易计划）。
-- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/涨停板复盘/、report/题材生命周期/、report/涨停板评估/、report/蓄力票扫描/、report/股票每日复盘/）；一次只分析一个板块的 skill 在日期后加板块名区分，如 leader-find 写 report/龙头扫描/YYYY-MM-DD-<板块名>.md（同一天多个板块各写一份）；中间产物不留残留，例如 limit-judge 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
+- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/涨停板复盘/、report/题材生命周期/、report/涨停板评估/、report/股票每日复盘/）；一次只分析一个板块的 skill 在日期后加板块名区分，如 leader-find 写 report/龙头扫描/YYYY-MM-DD-<板块名>.md（同一天多个板块各写一份）；中间产物不留残留，例如 limit-judge 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
 - 新增或移除 skill 时，同步更新本文件的 skill 清单与 README 的技能表、安装清单、示例提示词、调用约束。
 
 ## 常用命令
@@ -84,7 +84,7 @@ python -m py_compile market-data/scripts/fetch_quote.py
 
 ## 提交与发布约定
 
-提交信息用简短中文并点名改动的 skill（如 `simmer-find: 调整回踩蓄力口径`），也可用 conventional commits（feat:/fix:/docs:）。
+提交信息用简短中文并点名改动的 skill（如 `limit-find: 调整晋级率口径`），也可用 conventional commits（feat:/fix:/docs:）。
 
 发布流程（每次发版按序执行）：
 
