@@ -38,7 +38,7 @@ description: 一次性初始化股票交易工作区：创建 ACCOUNT.md、NOTES
   - 过户费：默认 0.001%（买卖双向；规则固定，可调整）
   - 过户费市场规则：确认深市是否已计入佣金（默认已计入、不单独收）、沪市是否单独收取（默认按 0.001% 单收；沪市 600/601/603/688 等）
   - 拿不到用户答案时用默认值，并在 ACCOUNT.md 标注“默认值，待确认”
-- 板块权限（写入 ACCOUNT.md「板块权限」，供 limit-lifecycle 等按权限排除无法买入的股票）：主板（默认已开通）、创业板、科创板、北交所是否开通，ST/风险警示股是否允许交易；拿不到答案时用默认（仅主板可交易、创业板/科创板/北交所未开通、ST 不交易）并标注“默认值，待确认”
+- 板块权限（写入 ACCOUNT.md「板块权限」，供 limit-probe、limit-lifecycle 等按权限排除无法买入的股票）：主板（默认已开通）、创业板、科创板、北交所是否开通，ST/风险警示股是否允许交易；拿不到答案时用默认（仅主板可交易、创业板/科创板/北交所未开通、ST 不交易）并标注“默认值，待确认”
 - 复盘/通知邮件收件人：询问用户邮箱地址（用于 stock-report 每日复盘邮件；写入 AGENTS.md「邮件」章节）；用户不提供则写“未提供”，复盘时自动改为生成 report/ 对应子目录报告文件
 
 ## 3. 初始化
@@ -61,7 +61,7 @@ description: 一次性初始化股票交易工作区：创建 ACCOUNT.md、NOTES
 - 清仓时：创建 history/YYYY-MM-DD/，把 STOCK-REVIEW.md / TRADE-SUMMARY.md **移动**到该目录（归档=移动，工作区不留副本）；下次建仓该股时这两个文件由 position-management 重新创建
 - 已存在的文件不覆盖；空文件用种子模板填充；全部 UTF-8 编码
 - 按确认结果填写 ACCOUNT.md 的交易费用设置、板块权限与资金规则（账户口径见第 2 步）；缺失或未确认的项用默认值并标注“默认值，待确认”
-- report/ 为复盘/分析报告输出根目录（初始为空）：按报告类型保存到子目录（如 report/股票午间复盘/、report/股票每日复盘/、report/龙头扫描/ 等），目录不存在时由对应 SKILL 创建
+- report/ 为复盘/分析报告输出根目录（初始为空）：按报告类型保存到子目录（如 report/股票午间复盘/、report/股票每日复盘/、report/龙头扫描/、report/盘中涨停探测/ 等），目录不存在时由对应 SKILL 创建
 
 ## 4. 写入 AGENTS.md
 
@@ -77,7 +77,7 @@ description: 一次性初始化股票交易工作区：创建 ACCOUNT.md、NOTES
 - POSITION.md：当前持仓状态（总览表 + 每只持仓明细小节：成本/现价/止损止盈/时间止损/买入理由/备注），建仓创建小节、动作后更新、清仓整节移除；买入/卖出后立即更新
 - MUST.md：个人交易风格与必须遵守的规则（默认只有一个标题，用户自行编辑），所有 SKILL 必须遵守
 - TRADE-STATS.md：交易统计表（每笔清仓填一行；每 5-10 笔结算胜率/平均盈亏/期望值/最大回撤，用统计判断系统是否有效），由 position-management 更新
-- report/：复盘/分析报告输出根目录，按报告类型保存到子目录（如 report/股票午间复盘/YYYY-MM-DD.md、report/股票每日复盘/YYYY-MM-DD.md、report/龙头扫描/YYYY-MM-DD-<板块名>.md 等），目录与文件由对应 SKILL 创建写入
+- report/：复盘/分析报告输出根目录，按报告类型保存到子目录（如 report/股票午间复盘/YYYY-MM-DD.md、report/股票每日复盘/YYYY-MM-DD.md、report/盘中涨停探测/YYYY-MM-DD.md、report/龙头扫描/YYYY-MM-DD-<板块名>.md 等），目录与文件由对应 SKILL 创建写入
 - stocks/<股票名称-股票代码>/：每只股票一个文件夹（名称-代码，如 华胜天成-600410；名称以 POSITION.md / $market-data 为准，不编造）
   - STOCK-REVIEW.md：个股交易计划 + 每日检查记录（position-management 建仓时创建并写入交易计划；持仓期间 stock-analysis 持仓检查模式追加每日检查行；stock-analysis 六格清单分析交接后不落盘）
   - TRADE-SUMMARY.md：个股交易记录与总结（position-management 按自己的模板创建：建仓/加仓/减仓/清仓逐笔追加交易记录，清仓时补写本次盈亏与总结）

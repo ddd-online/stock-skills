@@ -1,0 +1,4 @@
+interface:
+  display_name: "盘中涨停探测（limit-probe）"
+  short_description: "盘中取当前涨停股、评级强势板块，列出可跟踪的已涨停/待涨停候选"
+  default_prompt: "使用 $limit-probe 盘中探测当前涨停板块，列出强势板块里可跟踪的已涨停或待涨停股票"
