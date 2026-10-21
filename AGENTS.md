@@ -1,6 +1,6 @@
 # 仓库指南
 
-自包含的 A 股实盘交易 Codex skills 集合。每个 skill 覆盖交易生命周期中的一个环节：分析（含持仓每日检查）、查找、盘中探测、计划、建仓与持仓、复盘、一次性初始化。
+自包含的 A 股实盘交易 Codex skills 集合。每个 skill 覆盖交易生命周期中的一个环节：分析（含持仓每日检查）、查找、盘中探测、连板记录、计划、建仓与持仓、复盘、一次性初始化。
 
 ## 仓库结构与模块组织
 
@@ -18,7 +18,7 @@ stock-skills/
 └── AGENTS.md
 ```
 
-现有 skills（10 个）：market-data（数据层）、stock-analysis（个股分析与持仓检查）、leader-find（板块龙头查找）、limit-find（涨停板查找）、limit-lifecycle（题材生命周期）、limit-judge（打板竞价评估）、limit-probe（盘中涨停探测）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
+现有 skills（11 个）：market-data（数据层）、stock-analysis（个股分析与持仓检查）、leader-find（板块龙头查找）、limit-find（涨停板查找）、limit-lifecycle（题材生命周期）、limit-judge（打板竞价评估）、limit-probe（盘中涨停探测）、limit-ladder（连板天梯）、stock-report（每日复盘）、position-management（资金与持仓档案）、setup-stock-workspace（一次性初始化）。
 
 约定：
 
@@ -31,8 +31,9 @@ stock-skills/
 - 板块字段的口径陷阱（实测记录）：东财镜像节点的 f160（近10日）与 f109（近5日）逐行同值，10 日维度不可用；个股的 f109/f160/f10（量比）在该节点返回 "-"；资金流老字段 f178（近5日主力序列）在三节点均返回空串，故近5日主力改用 fflow/kline?lmt=5 自算。取这些字段时按上述实测行为处理，不要假设字段可用。
 - 查找类 skill（leader-find、limit-find）不依赖工作区文件，可在任意目录运行；leader-find 必须传入一个板块参数（板块名或 BK 代码），未给板块时不运行、先向用户索取，也不做全市场扫描；limit-judge 不读工作区文件，但依赖 limit-find 落盘的上一份 report/涨停板复盘/YYYY-MM-DD.md 作为样本来源；limit-lifecycle 依赖 limit-find 落盘的当日 report/涨停板复盘/YYYY-MM-DD.md 作为输入（没有当日报告先执行 limit-find，报告写入 report/题材生命周期/YYYY-MM-DD.md），并只读取 ACCOUNT.md「板块权限」用于排除无法买入的股票。
 - limit-probe 只在交易日 9:30–11:30、13:00–15:00 运行，读取 ACCOUNT.md「板块权限」用于排除无法买入的股票，不读 MUST.md/POSITION.md/stocks/；数据日期或行情日期不是当日就停止，不依赖 limit-find 报告，报告写入 report/盘中涨停探测/YYYY-MM-DD.md。
+- limit-ladder 收盘后读取当日涨停池与上一份 limit-find 报告，按连板数生成 HTML 天梯；`N天M板`只作标注，昨日涨停今日未封的股票放回昨日高度标断板并写今日收盘价；使用固定 HTML 模板，报告写入 report/连板天梯/YYYY-MM-DD.html，不读取工作区账户/持仓文件。
 - 不使用观察池，也不创建 WATCHLIST.md 等状态文件：stock-analysis 的分析模式只分析并输出报告，不落盘、不维护任何池或状态；「观察」只是报告里的等待中间态（触发条件与预案写在报告里，由用户自行盯）。同一 skill 的持仓检查模式只允许两处落盘——向既有 STOCK-REVIEW.md 追加每日检查行、回写 POSITION.md 现价与浮动盈亏（不建档、不改写交易计划）。
-- 报告一律写入 report/<报告类型>/YYYY-MM-DD.md（如 report/涨停板复盘/、report/题材生命周期/、report/涨停板评估/、report/盘中涨停探测/、report/股票每日复盘/）；一次只分析一个板块的 skill 在日期后加板块名区分，如 leader-find 写 report/龙头扫描/YYYY-MM-DD-<板块名>.md（同一天多个板块各写一份）；中间产物不留残留，例如 limit-judge 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
+- 报告默认写入 report/<报告类型>/YYYY-MM-DD.md（如 report/涨停板复盘/、report/题材生命周期/、report/涨停板评估/、report/盘中涨停探测/、report/股票每日复盘/）；HTML 图表写 report/<报告类型>/YYYY-MM-DD.html（如 report/连板天梯/YYYY-MM-DD.html）。一次只分析一个板块的 skill 在日期后加板块名区分，如 leader-find 写 report/龙头扫描/YYYY-MM-DD-<板块名>.md（同一天多个板块各写一份）；中间产物不留残留，例如 limit-judge 的竞价清单（YYYY-MM-DD-竞价清单.txt）运行结束必须清理，其数据全部并进当日报告。
 - 新增或移除 skill 时，同步更新本文件的 skill 清单与 README 的技能表、安装清单、示例提示词、调用约束。
 
 ## 常用命令

@@ -1,0 +1,4 @@
+interface:
+  display_name: "连板天梯（limit-ladder）"
+  short_description: "每日涨停股做成 HTML 连板天梯，标注几天几板、封板时间与断板收盘价"
+  default_prompt: "使用 $limit-ladder 生成今日连板天梯 HTML，并读取昨日涨停板文章标记断板"
